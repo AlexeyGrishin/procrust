@@ -45,16 +45,12 @@ describe 'Match', ->
 
   describe 'destruction', ->
     fnSimple = Match -> [
-      When @a = 3, -> @a
-      When @a = 'test', -> @a
+      When @a, -> @a
     ]
 
     it 'shall destruct simple value', ->
       expect(fnSimple 3).toEqual(3)
       expect(fnSimple 'test').toEqual('test')
-    it 'shall throw on unknown value', ->
-      expect(->fnSimple 4).toThrow()
-      expect(->fnSimple 'notest').toThrow()
 
     fnArraySimple = Match -> [
       When @a = [1,2], -> @a
@@ -118,21 +114,33 @@ describe 'Match', ->
         ['two', 'three']
       ])
 
-  it 'several calls', ->
+
+    it 'shall destruct whole structs and struct parts', ->
+      fn = Match -> [When {a: @a = {b: @b}}, -> [@a, @b]]
+      expect(fn {a: {b: 3, c: 4}}).toEqual([{b:3,c:4},3])
+
+  it 'shall check identity if same variable met twice', ->
+    fn = Match -> [
+      When [@x, @x, @x], -> 'ok'
+    ]
+    expect(fn [3,3,3]).toEqual('ok')
+    expect(->fn [3,3,4]).toThrow()
+
+  it 'shall process several calls', ->
     fn = Match -> [
       When @x, -> @x
     ]
     expect(fn 1).toEqual(1)
     expect(fn 2).toEqual(2)
 
-  it 'with value', ->
+  it 'shall work with value', ->
     res = Match 5, -> [
       When 4, -> 'bad'
       When 5, -> 'good'
     ]
     expect(res).toEqual('good')
 
-  it 'nested', ->
+  it 'shall work nested', ->
     res = Match {x: 2}, -> [
       When {x: @x}, -> Match @x, -> [
         When 2, -> 'good'

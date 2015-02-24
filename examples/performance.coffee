@@ -8,7 +8,6 @@ measure = (repeats, fn) ->
   t2 - t1
 
 coffeeDestruct = (demo) ->
-  ctx = {}
   {user} = demo
   return if not user.enabled
   {firstname, group, mailbox, settings} = user
@@ -24,15 +23,8 @@ coffeeDestruct = (demo) ->
   return if readmails?[0]?.subject != "Hello"
   rest = readmails?.slice(1)
   return {firstname, notifications, firstUnread, restUnread, rest, mailboxId}
-  ctx.firstname = firstname
-  ctx.notifications = notifications
-  ctx.firstUnread = firstUnread
-  ctx.restUnread = restUnread
-  ctx.rest = rest
-  ctx.mailboxId = mailboxId
 
 
-pm.debug = true
 
 singlePattern = Match -> [
   When {user: {
@@ -53,8 +45,6 @@ singlePattern = Match -> [
   }}, -> "ok"
 ]
 
-pm.debug = false
-
 severalPatterns = Match -> [
   When {user: {
     firstname: @firstname,
@@ -69,7 +59,7 @@ severalPatterns = Match -> [
       ],
       readmails: [@readMail1, @readMail2]
     }
-  }}, -> "fail_read"
+  }}, -> throw "fail_read"
   When {user: {
     firstname: @firstname,
     enabled: true,
@@ -83,7 +73,7 @@ severalPatterns = Match -> [
         {subject: "Hello"}, Tail(@rest)
       ]
     }
-  }}, -> "fail_unread"
+  }}, -> throw "fail_unread"
   When {user: {
     firstname: @firstname,
     enabled: true,
@@ -99,7 +89,7 @@ severalPatterns = Match -> [
         {subject: "Hello"}, Tail(@rest)
       ]
     }
-  }}, -> "fail_group"
+  }}, -> throw "fail_group"
   When {user: {
     firstname: @firstname,
     enabled: false,
@@ -115,7 +105,7 @@ severalPatterns = Match -> [
         {subject: "Hello"}, Tail(@rest)
       ]
     }
-  }}, -> "fail_enabled"
+  }}, -> throw "fail_enabled"
   When {user: {
     firstname: @firstname,
     enabled: true,
@@ -137,11 +127,11 @@ severalPatterns = Match -> [
 demoStruct = require('./demo.json')
 
 console.log "Measure regular destruct..."
-rd = measure(10000, ->coffeeDestruct(demoStruct))
+rd = measure(100000, ->coffeeDestruct(demoStruct))
 console.log "Measure single pattern match..."
-sp = measure(10000, ->singlePattern(demoStruct))
+sp = measure(100000, ->singlePattern(demoStruct))
 console.log "Measure several pattern matches..."
-mp = measure(10000, ->severalPatterns(demoStruct))
+mp = measure(100000, ->severalPatterns(demoStruct))
 
 console.log();
 console.log("Regular:             #{rd}ms")
