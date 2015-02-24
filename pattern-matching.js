@@ -81,13 +81,12 @@
     return match;
 
     function match(value) {
-      var rest = whenFns.slice();
-      function next() {
-        var n = rest.shift();
-        if (n) return n(value, next);
-        throw "Value is not matched by any condition: '" + value + "'";
+      for (var i = 0; i < whenFns.length; i++) {
+        var next = false;
+        var res = whenFns[i](value, function() {next = true;}) ;
+        if (!next) return res;
       }
-      return next();
+      throw "Value is not matched by any condition: '" + value + "'";
     }
   }
 
@@ -99,28 +98,27 @@
     }
     var myVars = context.when.usedVars;
     var myVarsDict = {};
-    var wholeVar = {};
+    var wholeVar = "__value";
     myVars.forEach(function(mv) {
       myVarsDict[mv.__key] = mv;
-      if (mv.__whole) wholeVar = mv;
+      if (mv.__whole) wholeVar = mv.__key;
     });
     myVarsDict["_"] = _;
     pattern = updatePattern(pattern, myVarsDict);
+    var compiled = compilePattern(pattern);
     context.nextWhen();
     return function(value, next) {
-      myVars.forEach(function(mv) { mv.__value = undefined; });
-      var res = doMatch(value, pattern, function(er) { return er;});
-      if (res === true) {
-        wholeVar.__value = value;
-        var ctx = {};
-        myVars.forEach(function(mv) { ctx[mv.__key] = mv.__value; });
+      var res = compiled(value);
+      if (typeof res === "object") {
+        var ctx = res;
+        ctx[wholeVar] = value;
         ctx.__rejected = false;
         res = execute.call(ctx);
         if (ctx.__rejected) return next();
         return res;
       }
       else {
-        //console.log(res);
+        if (exports.debug) console.log(res);
         return next();
       }
 
@@ -159,6 +157,7 @@
   exports.When = When;
   exports.Having = Having;
   exports.Tail = Tail;
+  exports.debug = false;
 
   function print(o) {
     if (o && o.__key) return "<@" + o.__key + ">";
@@ -170,56 +169,85 @@
   }
 
 
-  function doMatch(value, pattern, err) {
-    var undefVal = typeof value == 'undefined';
-    var undefPattern = typeof pattern == 'undefined';
-    if (undefVal && undefPattern) return true;
-    if (undefVal || undefPattern) return err(undefVal ? "value is undefined when pattern has '" + print(pattern) + "'" : "pattern is undefined when value is '" + print(value) + "'");
-    if (pattern == _) return true;
-
-    if (typeof pattern == 'function') {
-      return value.constructor == pattern ? true : err("Expected value to be '" + print(pattern) + "' but it is '" + value.constructor + "'");
+  function compilePattern(pattern) {
+    var code = [print.toString().replace(/[\n\r]/g, '')];
+    var varIdx = 1;
+    function add(c) { code.push(c + ";"); }
+    var vars = [];
+    var props = {};
+    function assignVar(ex) {
+      var vname = "__" + varIdx++;
+      vars.push(vname);
+      add(vname + " = " + ex);
+      return vname;
     }
-    else if (Array.isArray(pattern)) {
-      if (!Array.isArray(value)) return err("Pattern is array, value is '" + print(value) + "'");
-      if (pattern.length == 0) {
-        return value.length == 0 ? true : err("Pattern is empty array, but value is '" + print(value) + "'");
+
+    function compilePart(p, varName) {
+      var i;
+      if (typeof p == 'undefined') {
+        add("return " + varName + " == null ? true : 'Expected undefined but got ' + print(" + varName + ");");
+        return;
       }
-      var last = pattern[pattern.length - 1];
-      var i,res;
-      if (last.__tail) {
-        for (i = 0; i < pattern.length - 1; i++) {
-          res = doMatch(value[i], pattern[i], err);
-          if (res !== true) return res;
+      add("if (" + varName + " == null) return 'Got undefined, but expected " + print(p) + "';");
+      if (p == _) {
+        return;
+      }
+      if (p.__key) {
+        if (!props[p.__key]) {
+          props[p.__key] = varName;
         }
-        last.__value = value.slice(pattern.length - 1);
+        else {
+          add("if (" + varName + " !== " + props[p.__key] + ") return 'Previous time " + print(p) + " was set to ' + print(" + props[p.__key] + ") + ' but this time it is ' + print(" + varName + ");")
+        }
+
+      }
+      else if (typeof p == 'function') {
+        add("if (" + varName + ".constructor.name !== '" + p.name + "') return 'Expected object of type " + p.name + " but got ' + " + varName + ".constructor;");
+      }
+      else if (Array.isArray(p)) {
+        var last = p[p.length - 1];
+        if (p.length == 0 || !last.__tail) {
+          add("if (" + varName + ".length != " + p.length + ") return 'Expected array of size " + p.length + " but got ' + print(" +varName + "); ");
+          for (i = 0; i < p.length; i++) {
+            compilePart(p[i], assignVar(varName + "[" + i + "]"));
+          }
+        }
+        else {
+          add("if (" + varName + ".length < " + (p.length-1) + ") return 'Expected array of size at least " + (p.length-1) + " but got ' + print(" +varName + "); ");
+          for (i = 0; i < p.length-1; i++) {
+            compilePart(p[i], assignVar(varName + "[" + i + "]"));
+          }
+          compilePart(p[p.length-1], assignVar(varName + ".slice(" + (p.length-1) + ")"))
+        }
+      }
+      else if (typeof p == "object") {
+        for (var k in p) {
+          if (!p.hasOwnProperty(k)) continue;
+          compilePart(p[k], assignVar(varName + "." + k));
+        }
       }
       else {
-        if (pattern.length != value.length) return err("Patetrn length does not match value length");
-        for (i = 0; i < pattern.length; i++) {
-          res = doMatch(value[i], pattern[i], err);
-          if (res !== true) return res;
-        }
+        add("if (" + varName + " !== " + JSON.stringify(p) + ") return 'Expected " + print(p) + " but value is ' + print(" + varName + ");")
       }
-      return true;
     }
-    else if (pattern.__key) {
-      if (typeof pattern.__value !== "undefined") {
-        return pattern.__value === value ? true : err("Previous time " + print(pattern) + " was set to '" + print(pattern.__value) + "' but now it is '" + print(value) + "'");
-      }
-      pattern.__value = value;
-      return true;
+
+    compilePart(pattern, "value");
+    var pairs = [];
+    for (var p in props) {
+      if (!props.hasOwnProperty(p)) continue;
+      pairs.push(p + ": " + props[p]);
     }
-    else if (typeof pattern == "object") {
-      for (var k in pattern) {
-        if (!pattern.hasOwnProperty(k)) continue;
-        res = doMatch(value[k], pattern[k], err);
-        if (res !== true) return res;
-      }
-      return true;
+    add("return {" + pairs.join(',') + "}");
+    if (vars.length > 0) code.unshift("var " + vars.join(',') + ";");
+    var fbody = code.join("\n");
+    try {
+      var fn = new Function("value", fbody);
+      if (exports.debug) console.log(fbody);
+      return fn;
     }
-    else {
-      return pattern === value ? true : err("Pattern is '" + print(pattern) + "' but value is '" + print(value) + "'")
+    catch (e) {
+      console.error(fbody);
+      throw e;
     }
   }
 

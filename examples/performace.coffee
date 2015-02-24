@@ -1,4 +1,4 @@
-{Tail, Match, When, Having, functionMatch} = require('./../pattern-matching')
+{Tail, Match, When, Having, functionMatch} = pm = require('./../pattern-matching')
 
 measure = (repeats, fn) ->
   t1 = new Date().getTime()
@@ -8,22 +8,31 @@ measure = (repeats, fn) ->
   t2 - t1
 
 coffeeDestruct = (demo) ->
+  ctx = {}
   {user} = demo
   return if not user.enabled
   {firstname, group, mailbox, settings} = user
   return if group.id != "admin"
   notifications = settings?.mail?.notify ? []
-  return if mailbox.kind != 'personal'
-  mailboxId = mailbox.id
+  return if mailbox?.kind != 'personal'
+  mailboxId = mailbox?.id ? null
   {unreadmails, readmails} = mailbox;
   return if unreadmails.length < 1
-  firstUnread = unreadmails[0]
-  restUnread = unreadmails.slice(1)
-  return if readmails.length < 1
-  return if readmails[0].subject != "Hello"
-  rest = readmails.slice(0)
+  firstUnread = unreadmails?[0] ? []
+  restUnread = unreadmails?.slice(1) ? []
+  return if readmails?.length < 1
+  return if readmails?[0]?.subject != "Hello"
+  rest = readmails?.slice(1)
+  return {firstname, notifications, firstUnread, restUnread, rest, mailboxId}
+  ctx.firstname = firstname
+  ctx.notifications = notifications
+  ctx.firstUnread = firstUnread
+  ctx.restUnread = restUnread
+  ctx.rest = rest
+  ctx.mailboxId = mailboxId
 
 
+pm.debug = true
 
 singlePattern = Match -> [
   When {user: {
@@ -44,6 +53,7 @@ singlePattern = Match -> [
   }}, -> "ok"
 ]
 
+pm.debug = false
 
 severalPatterns = Match -> [
   When {user: {
@@ -123,7 +133,6 @@ severalPatterns = Match -> [
     }
   }}, -> "ok"
 ]
-
 
 demoStruct = require('./demo.json')
 
