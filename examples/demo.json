@@ -1,0 +1,33 @@
+{
+  "user": {
+    "firstname": "Alex",
+    "enabled": true,
+    "group": {
+      "id": "admin"
+    },
+    "settings": {
+      "mail": {
+        "notify": ["change", "add", "delete"]
+      }
+    },
+    "mailbox": {
+      "id": "p1",
+      "kind": "personal",
+      "unreadmails": [
+        {"id": 10, "subject": "Hello"},
+        {"id": 11, "subject": "Hello"},
+        {"id": 12, "subject": "Hello"},
+        {"id": 13, "subject": "Hello"},
+        {"id": 14, "subject": "Hello"},
+        {"id": 15, "subject": "Hello"},
+        {"id": 16, "subject": "Hello"}
+      ],
+      "readmails": [
+        {"id": 23, "subject": "Hello"},
+        {"id": 24, "subject": "Hello"},
+        {"id": 25, "subject": "Hello"},
+        {"id": 26, "subject": "Hello"}
+      ]
+    }
+  }
+}
