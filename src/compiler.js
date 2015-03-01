@@ -40,7 +40,7 @@ var compilePattern = (function() {
   var _length = _create(['var', _key('length'), 'compare'], function(ex) {
     return this.length == ex.length && this.compare == ex.compare;
   });
-  var _done = _create(['done', 'result']);
+  var _done = _create([_key('done'), 'result']);
   var _any = _create(['var', _fakekey('any')]);
 
   function _toString(ex) {
@@ -154,12 +154,7 @@ var compilePattern = (function() {
     function flow(patterns, idx) {
       var cmds = [], i;
       while (patterns.length > 0) {
-        for (i = patterns.length-1; i >= 0; i--) {
-          if (typeof patterns[i].cmds[idx].done != 'undefined') {
-            cmds.push(patterns[i].cmds[idx]);
-            patterns.splice(i, 1);
-          }
-        }
+        patterns = patterns.filter(function(p){ return p.cmds[idx]; });
         if (patterns.length == 0) break;
         var forks = [{cmd: patterns[0].cmds[idx], patterns: [patterns[0]]}];
         for (i = 1; i < patterns.length; i++) {
@@ -243,15 +238,17 @@ var compilePattern = (function() {
     }
 
     function renderDebug(condition) {
-      if (options.debug) {
+      if (options.debug && condition != null) {
         return "if (!(" + condition + ")) {console.log('[PROKRUST] ' + " + JSON.stringify(condition) + " + ' -> failed' );}"
       }
       return "";
     }
 
     function renderFork(pad, fork) {
-      return renderDebug(fork.if) + [
-        addPad(pad, "if (" + renderCondition(fork.if) + ") do {")
+      var cond = renderCondition(fork.if);
+      var ifExpr = cond == null ? "" : "if (" + cond + ") ";
+      return renderDebug(cond) + [
+        addPad(pad, ifExpr + "do {")
       ].concat(renderExpressions("break", pad + 2, fork.then)).concat([
           addPad(pad, "} while (false);")
         ]).join("\n");
@@ -291,7 +288,12 @@ var compilePattern = (function() {
         //TODO: assign temp var
       }
       else if (cmd.fork) {
-        return "//fork\n" + cmd.fork.map(renderFork.bind(null, pad)).join("\n");
+
+        return "//fork\n" + cmd.fork.map(function(fork) {
+            if (fork.if.done != null)
+              return renderExpression(ret, pad, fork.if); //TODO: fix pad
+            return renderFork(pad, fork);
+          }).join("\n");
       }
       else {
         throw new Error("Unexpected expression: " + JSON.stringify(cmd));
@@ -301,7 +303,18 @@ var compilePattern = (function() {
 
     var code =
       renderExpressions("return false", 2, grouped.cmds).join("\n");
-    return new Function(firstArgName, secondArgName, code);
+    try {
+      var fn = new Function(firstArgName, secondArgName, code);
+      if (options.printFunctions) {
+        console.log(fn.toString());
+      }
+      return fn;
+    }
+    catch (e) {
+      if (options.debug) console.error(code);
+      console.error(e);
+      throw e;
+    }
   }
 
   return function compilePattern(patterns, helper) {

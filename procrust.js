@@ -42,7 +42,7 @@
     var _length = _create(['var', _key('length'), 'compare'], function(ex) {
       return this.length == ex.length && this.compare == ex.compare;
     });
-    var _done = _create(['done', 'result']);
+    var _done = _create([_key('done'), 'result']);
     var _any = _create(['var', _fakekey('any')]);
   
     function _toString(ex) {
@@ -156,12 +156,7 @@
       function flow(patterns, idx) {
         var cmds = [], i;
         while (patterns.length > 0) {
-          for (i = patterns.length-1; i >= 0; i--) {
-            if (typeof patterns[i].cmds[idx].done != 'undefined') {
-              cmds.push(patterns[i].cmds[idx]);
-              patterns.splice(i, 1);
-            }
-          }
+          patterns = patterns.filter(function(p){ return p.cmds[idx]; });
           if (patterns.length == 0) break;
           var forks = [{cmd: patterns[0].cmds[idx], patterns: [patterns[0]]}];
           for (i = 1; i < patterns.length; i++) {
@@ -245,15 +240,17 @@
       }
   
       function renderDebug(condition) {
-        if (options.debug) {
+        if (options.debug && condition != null) {
           return "if (!(" + condition + ")) {console.log('[PROKRUST] ' + " + JSON.stringify(condition) + " + ' -> failed' );}"
         }
         return "";
       }
   
       function renderFork(pad, fork) {
-        return renderDebug(fork.if) + [
-          addPad(pad, "if (" + renderCondition(fork.if) + ") do {")
+        var cond = renderCondition(fork.if);
+        var ifExpr = cond == null ? "" : "if (" + cond + ") ";
+        return renderDebug(cond) + [
+          addPad(pad, ifExpr + "do {")
         ].concat(renderExpressions("break", pad + 2, fork.then)).concat([
             addPad(pad, "} while (false);")
           ]).join("\n");
@@ -293,7 +290,12 @@
           //TODO: assign temp var
         }
         else if (cmd.fork) {
-          return "//fork\n" + cmd.fork.map(renderFork.bind(null, pad)).join("\n");
+  
+          return "//fork\n" + cmd.fork.map(function(fork) {
+              if (fork.if.done != null)
+                return renderExpression(ret, pad, fork.if); //TODO: fix pad
+              return renderFork(pad, fork);
+            }).join("\n");
         }
         else {
           throw new Error("Unexpected expression: " + JSON.stringify(cmd));
@@ -303,7 +305,18 @@
   
       var code =
         renderExpressions("return false", 2, grouped.cmds).join("\n");
-      return new Function(firstArgName, secondArgName, code);
+      try {
+        var fn = new Function(firstArgName, secondArgName, code);
+        if (options.printFunctions) {
+          console.log(fn.toString());
+        }
+        return fn;
+      }
+      catch (e) {
+        if (options.debug) console.error(code);
+        console.error(e);
+        throw e;
+      }
     }
   
     return function compilePattern(patterns, helper) {
@@ -320,13 +333,15 @@
     var context = {
       vars: [],
       kvars: {},
-      when: {},
-      nextWhen: function() {
-        this.when = {usedVars: [], usedKeys: {}, placeholderId: 1};
+      metvars: {},
+      placeholderId: 1,
+      onNew: function() {
+        this.placeholderId = 1;
+        this.metvars = {};
       },
       nextPlaceholderId: function() {
-        var id = this.when.placeholderId;
-        this.when.placeholderId = this.when.placeholderId << 1;
+        var id = this.placeholderId;
+        this.placeholderId = this.placeholderId << 1;
         return id;
       }
     };
@@ -339,18 +354,20 @@
       this.__id = id;
     }
     Placeholder.prototype = {
-      toString: function() { return this.__id; },
-      clone: function() { return new Placeholder(this.__key, this.__id); },
-      __is_placeholder: true,
-      meet: function() {
-        var cw = context.when;
-        var whenSpecific = cw.usedKeys[this.__key];
-        if (whenSpecific == null) {
-          whenSpecific = new Placeholder(this.__key, context.nextPlaceholderId());
-          cw.usedKeys[this.__key] = whenSpecific;
-          cw.usedVars.push(whenSpecific);
+      toString: function() {
+        if (this.__id == undefined) {
+          this.__id = context.nextPlaceholderId();
         }
-        return whenSpecific;
+        return this.__id;
+      },
+      clone: function() { return new Placeholder(this.__key, this.__id); },
+      meet: function() {
+        var specific = context.metvars[this.__key];
+        if (specific == null) {
+          specific = new Placeholder(this.__key);
+          context.metvars[this.__key] = specific;
+        }
+        return specific;
       }
     };
     
@@ -391,7 +408,8 @@
     
     
     function Match(whensFactories) {
-      var value, whenFns;
+      var value, patternsAndFns, patterns, whenFns, compiled;
+      var resultsHolder = {result: null};
       if (arguments.length == 2) {
         if (typeof arguments[1] == 'function' && typeof arguments[0] != 'function') {
           value = arguments[0];
@@ -399,24 +417,34 @@
         }
       }
       getAll(/this\.([a-zA-Z0-9_]+)/gi, whensFactories.toString()).map(createPlaceholder);
-      context.nextWhen();
-      whenFns = whensFactories.call(context.kvars);
+      context.onNew();
+      patternsAndFns = whensFactories.call(context.kvars);
+      patterns = patternsAndFns.map(function(p) { return p.pattern;});
+      whenFns = patternsAndFns.map(function(p) { return p.produceWhenFn(resultsHolder);});
+      try {
+        compiled = doCompilePatterns(patterns, context.metvars);
+      }
+      catch (e) {
+        if (compiled && exports.debug) console.error(compiled.toString());
+        console.error(e, e.stack);
+        throw e;
+      }
       if (typeof value !== 'undefined') return match(value);
       return match;
     
       function match(value) {
-        var i, next, res;
-        for (i = 0; i < whenFns.length; i++) {
-          next = false;
-          res = whenFns[i](value, function() {next = true;}) ;
-          if (!next) return res;
-        }
+        var ok = compiled(value, whenFns);
+        if (ok) return resultsHolder.result;
         throw new Error("Value is not matched by any condition: '" + value + "'");
       }
     }
     
-    function doCompilePattern(pattern, myVars) {
-      return compilePattern([pattern], {
+    function doCompilePatterns(patterns, allVarsDict) {
+      var allVars = [];
+      for (var k in allVarsDict) {
+        if (allVarsDict.hasOwnProperty(k)) allVars.push(allVarsDict[k]);
+      }
+      return compilePattern(patterns, {
         getResultRef: function(o) {
           if (o.__reference) return o.__reference.__key;
           if (o.__key) return o.__key;
@@ -425,11 +453,12 @@
         isWildcard: function(i) { return i === _;},
         renderOptions: {
           debug: exports.debug,
-          printParsed: exports.printParsed
+          printParsed: exports.printParsed,
+          printFunctions: exports.printFunctions
         },
         resolveTail: function(array) {
           if (!array.length) return [array];
-          array = bitwiseOrDetector(array, myVars);
+          array = bitwiseOrDetector(array, allVars);
           var last = array[array.length-1];
           if (last.__tail) {
             array.pop();
@@ -448,31 +477,15 @@
         execute = args.pop();
         pattern = args;
       }
-      var myVars = context.when.usedVars;
-      var compiled = doCompilePattern(pattern, myVars);
-      if (exports.printFunctions) console.log(compiled.toString());
-      context.nextWhen();
-      return function(value, next) {
-        var res;
-        try {
-          var ok = compiled(value, [function (ctx) {
-            res = execute.call(ctx);
-            return !ctx.__rejected;
-          }]);
+      return {pattern: pattern, produceWhenFn: function produceWhenFn(resultHolder) {
+        return function(ctx) {
+          var result = execute.call(ctx);
+          if (ctx.__rejected) return false;
+          resultHolder.result = result;
+          return true;
         }
-        catch (e) {
-          if (exports.debug) console.error(compiled.toString());
-          console.error(e);
-          throw e;
-        }
-        if (ok) {
-          return res;
-        }
-        else {
-          return next();
-        }
+      }};
     
-      }
     }
     
     function Having(guardFn) {
