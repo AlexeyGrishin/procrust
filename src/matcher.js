@@ -1,5 +1,8 @@
+var _ = new Placeholder("_");
+_.meet = function() {
+  return this;
+};
 
-var _ = {__key: "_", __everything__matching__placeholder: true};
 //Global context - used to pass data from Match to Whens
 var context = {
   vars: [],
@@ -43,7 +46,7 @@ Placeholder.prototype = {
 };
 
 function createPlaceholder(name) {
-  var placeholder = new Placeholder(name);
+  var placeholder = name === "_" ? _ : new Placeholder(name);
 
   Object.defineProperty(context.kvars, name, {
     configurable: true,
@@ -100,6 +103,7 @@ function Match(whensFactories) {
     console.error(e, e.stack);
     throw e;
   }
+  match.matchFn = compiled;
   if (typeof value !== 'undefined') return match(value);
   return match;
 
@@ -117,6 +121,7 @@ function doCompilePatterns(patterns, allVarsDict) {
   }
   return compilePattern(patterns, {
     getResultRef: function(o) {
+      if (o === _) return null;
       if (o.__reference) return o.__reference.__key;
       if (o.__key) return o.__key;
     },

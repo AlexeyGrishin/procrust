@@ -204,8 +204,20 @@ var compilePattern = (function() {
       return new Array(pad + 1).join(" ") + item;
     }
 
+    var tempVars = {}, nextVar = 1;
+
+    function assignTemp(cmd, prefix) {
+      var orig = typeof cmd == 'object' ? cmd.var : cmd;
+      if (!tempVars[orig]) {
+        tempVars[orig] = "__" + prefix + "$" + nextVar;
+        nextVar++;
+      }
+      return tempVars[orig];
+    }
+
     function varname(cmd) {
-      return typeof cmd == 'object' ? cmd.var : cmd;
+      var orig = typeof cmd == 'object' ? cmd.var : cmd;
+      return tempVars[orig] || orig;
     }
 
     function notNull(cmd) {
@@ -269,12 +281,11 @@ var compilePattern = (function() {
         return renderConditionCheck(cond, ret);
       }
       else if (cmd.prop != null) {
-        //TODO: assign temp var
-        //return renderConditionCheck(notNull(cmd.var + "." + cmd.prop), ret);
+        //TODO: assign temp only if variable used more than once
+        return assignTemp(cmd.newvar, cmd.prop) + " = " + varname(cmd) + "." + cmd.prop;
       }
       else if (cmd.item != null) {
-        //TODO: assign temp var
-        //return renderConditionCheck(notNull(cmd.var + "[" + cmd.item + "]"), ret);
+        return assignTemp(cmd.newvar, "item"+cmd.item) + " = " + varname(cmd) + "[" + cmd.item + "]";
       }
       else if (cmd.done != null) {
         var result = [];
@@ -285,7 +296,7 @@ var compilePattern = (function() {
         return "if (" + secondArgName + "[" + cmd.done + "]({" + result.join(', ') + "})) return true;"
       }
       else if (cmd.tail) {
-        //TODO: assign temp var
+        return assignTemp(cmd.newvar, "tail") + " = " + varname(cmd) + ".slice(" + cmd.tail + ")";
       }
       else if (cmd.fork) {
 
@@ -303,8 +314,9 @@ var compilePattern = (function() {
 
     var code =
       renderExpressions("return false", 2, grouped.cmds).join("\n");
+    var declareVars = Object.keys(tempVars).length ? "var " + Object.keys(tempVars).map(function(i) { return tempVars[i];}).join(",") + ";\n" : "";
     try {
-      var fn = new Function(firstArgName, secondArgName, code);
+      var fn = new Function(firstArgName, secondArgName, declareVars+code);
       if (options.printFunctions) {
         console.log(fn.toString());
       }

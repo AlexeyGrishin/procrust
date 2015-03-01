@@ -206,8 +206,20 @@
         return new Array(pad + 1).join(" ") + item;
       }
   
+      var tempVars = {}, nextVar = 1;
+  
+      function assignTemp(cmd, prefix) {
+        var orig = typeof cmd == 'object' ? cmd.var : cmd;
+        if (!tempVars[orig]) {
+          tempVars[orig] = "__" + prefix + "$" + nextVar;
+          nextVar++;
+        }
+        return tempVars[orig];
+      }
+  
       function varname(cmd) {
-        return typeof cmd == 'object' ? cmd.var : cmd;
+        var orig = typeof cmd == 'object' ? cmd.var : cmd;
+        return tempVars[orig] || orig;
       }
   
       function notNull(cmd) {
@@ -271,12 +283,11 @@
           return renderConditionCheck(cond, ret);
         }
         else if (cmd.prop != null) {
-          //TODO: assign temp var
-          //return renderConditionCheck(notNull(cmd.var + "." + cmd.prop), ret);
+          //TODO: assign temp only if variable used more than once
+          return assignTemp(cmd.newvar, cmd.prop) + " = " + varname(cmd) + "." + cmd.prop;
         }
         else if (cmd.item != null) {
-          //TODO: assign temp var
-          //return renderConditionCheck(notNull(cmd.var + "[" + cmd.item + "]"), ret);
+          return assignTemp(cmd.newvar, "item"+cmd.item) + " = " + varname(cmd) + "[" + cmd.item + "]";
         }
         else if (cmd.done != null) {
           var result = [];
@@ -287,7 +298,7 @@
           return "if (" + secondArgName + "[" + cmd.done + "]({" + result.join(', ') + "})) return true;"
         }
         else if (cmd.tail) {
-          //TODO: assign temp var
+          return assignTemp(cmd.newvar, "tail") + " = " + varname(cmd) + ".slice(" + cmd.tail + ")";
         }
         else if (cmd.fork) {
   
@@ -305,8 +316,9 @@
   
       var code =
         renderExpressions("return false", 2, grouped.cmds).join("\n");
+      var declareVars = Object.keys(tempVars).length ? "var " + Object.keys(tempVars).map(function(i) { return tempVars[i];}).join(",") + ";\n" : "";
       try {
-        var fn = new Function(firstArgName, secondArgName, code);
+        var fn = new Function(firstArgName, secondArgName, declareVars+code);
         if (options.printFunctions) {
           console.log(fn.toString());
         }
@@ -327,8 +339,11 @@
   
   })();
   
+    var _ = new Placeholder("_");
+    _.meet = function() {
+      return this;
+    };
     
-    var _ = {__key: "_", __everything__matching__placeholder: true};
     //Global context - used to pass data from Match to Whens
     var context = {
       vars: [],
@@ -372,7 +387,7 @@
     };
     
     function createPlaceholder(name) {
-      var placeholder = new Placeholder(name);
+      var placeholder = name === "_" ? _ : new Placeholder(name);
     
       Object.defineProperty(context.kvars, name, {
         configurable: true,
@@ -429,6 +444,7 @@
         console.error(e, e.stack);
         throw e;
       }
+      match.matchFn = compiled;
       if (typeof value !== 'undefined') return match(value);
       return match;
     
@@ -446,6 +462,7 @@
       }
       return compilePattern(patterns, {
         getResultRef: function(o) {
+          if (o === _) return null;
           if (o.__reference) return o.__reference.__key;
           if (o.__key) return o.__key;
         },

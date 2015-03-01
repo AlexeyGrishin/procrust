@@ -126,6 +126,13 @@ describe 'Match', ->
     expect(fn [3,3,3]).toEqual('ok')
     expect(->fn [3,3,4]).toThrow()
 
+  it "shall not check identity for wildcard variable", ->
+    fn = Match -> [
+      When [@_, @_, @_], -> "ok"
+    ]
+    expect(fn [3,3,3]).toEqual('ok')
+    expect(fn [1,2,3]).toEqual('ok')
+
   it 'shall process several calls', ->
     fn = Match -> [
       When @x, -> @x
