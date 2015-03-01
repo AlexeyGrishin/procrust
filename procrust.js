@@ -211,7 +211,7 @@
       function assignTemp(cmd, prefix) {
         var orig = typeof cmd == 'object' ? cmd.var : cmd;
         if (!tempVars[orig]) {
-          tempVars[orig] = "__" + prefix + "$" + nextVar;
+          tempVars[orig] = prefix + "$" + nextVar;
           nextVar++;
         }
         return tempVars[orig];
@@ -369,7 +369,7 @@
       this.__id = id;
     }
     Placeholder.prototype = {
-      toString: function() {
+      valueOf: function() {
         if (this.__id == undefined) {
           this.__id = context.nextPlaceholderId();
         }

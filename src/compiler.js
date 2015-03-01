@@ -209,7 +209,7 @@ var compilePattern = (function() {
     function assignTemp(cmd, prefix) {
       var orig = typeof cmd == 'object' ? cmd.var : cmd;
       if (!tempVars[orig]) {
-        tempVars[orig] = "__" + prefix + "$" + nextVar;
+        tempVars[orig] = prefix + "$" + nextVar;
         nextVar++;
       }
       return tempVars[orig];

@@ -28,7 +28,7 @@ function Placeholder(key, id) {
   this.__id = id;
 }
 Placeholder.prototype = {
-  toString: function() {
+  valueOf: function() {
     if (this.__id == undefined) {
       this.__id = context.nextPlaceholderId();
     }
