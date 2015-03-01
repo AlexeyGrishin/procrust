@@ -1,4 +1,4 @@
-{Tail, Match, When, Having, functionMatch} = pm = require('./../pattern-matching')
+{Tail, Match, When, Having, functionMatch} = pm = require('./../procrust')
 
 checkBounds = (field, x,y) ->
   x >=0 and y >=0 and x < field.width and y < field.height

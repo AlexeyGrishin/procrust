@@ -1,5 +1,5 @@
-jest.dontMock '../pattern-matching'
-{Tail, Match, When, Having, functionMatch} = require('../pattern-matching')
+jest.dontMock '../procrust'
+{Tail, Match, When, Having, functionMatch} = pm = require('../procrust')
 
 class MyClass
 
