@@ -1,6 +1,6 @@
 {Tail, Match, When, Having, functionMatch} = pm = require('./../procrust')
 
-pm.printFunctions = true
+pm.debug.functions = true
 
 measure = (repeats, fn) ->
   t1 = new Date().getTime()

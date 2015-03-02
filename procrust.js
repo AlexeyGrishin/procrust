@@ -1,50 +1,39 @@
 (function(exports){
 
-  
   var compilePattern = (function() {
   
     var firstArgName = "val";
     var secondArgName = "when";
   
-    function _eq(prop) {
-      return function(ex) {
-        return ex.var === this.var && this[prop] === ex[prop];
-      }
-    }
+    var parse = createParser(firstArgName);
+    var regroup = createRegrouper();
+    var createFn = createRenderer(firstArgName, secondArgName);
   
-    function _create(args, customeq) {
-      return function() {
-        var o = {};
-        for (var i = 0; i < args.length; i++) {
-          var k = args[i], value = arguments[i];
-          if (k.key) {
-            if (k.fake) value = true;
-            k = k.key;
-            o.eq = _eq(k)
-          }
-          o[k] = value;
+  
+    return function compilePattern(patterns, helper) {
+      return createFn(regroup(patterns.map(function(pattern, idx) {
+        return parse(pattern, idx, helper);
+      })), helper.renderOptions);
+    };
+  
+    
+    function _parsedPattern(cmds) {
+      return {cmds: cmds};
+    }
+    
+    function _notEmpty(item) {
+      return item != null;
+    }
+    
+    function _flat(array) {
+      for (var i = array.length-1; i >=0; i--) {
+        if (Array.isArray(array[i])) {
+          array.splice.apply(array, [i, 1].concat(_flat(array[i])));
         }
-        if (customeq) o.eq = customeq;
-        return o;
       }
+      return array;
     }
-    function _key(key) { return {key: key}}
-    function _fakekey(key) { return {key: key, fake: true}}
-  
-    var _value = _create(['var', _key('value')]);
-    var _typeof = _create(['var', _key('typeof')]);
-    var _array = _create(['var', _fakekey('array')]);
-    var _prop = _create(['var', _key('prop'), 'newvar']);
-    var _item = _create(['var', _key('item'), 'newvar']);
-    var _tail = _create(['var', _key('tail'), 'newvar']);
-    var _constructor = _create(['var', _key('ctor')]);
-    var _ref = _create(['var', _key('ref')]);
-    var _length = _create(['var', _key('length'), 'compare'], function(ex) {
-      return this.length == ex.length && this.compare == ex.compare;
-    });
-    var _done = _create([_key('done'), 'result']);
-    var _any = _create(['var', _fakekey('any')]);
-  
+    
     function _toString(ex) {
       if (ex.cmds) {
         return ex.vars.join(',') + "\n\n" + ex.cmds.map(_toString).join('\n')
@@ -75,88 +64,121 @@
         txt = "done(" + [ex.done].concat(JSON.stringify(ex.result)).join(',') + ")";
       }
       return txt;
-    }
-  
-    function _parsedPattern(cmds, vars) {
-      return {cmds: cmds, vars: vars};
-    }
-  
-    function parse(pattern, idx, helper) {
-  
-      var cmds = [];
-      var refs = {};
-      var vars = [];
-      function cmd(c) { cmds.push(c); }
-      function addRef(varname, ref) {
-        if (refs[ref]) {
-          cmd(_ref(varname, refs[ref]));
+    }  function createParser(firstArgName) {
+    
+      function _key(key) { return {key: key}}
+      function _fakekey(key) { return {key: key, fake: true}}
+    
+      var _value = _create(['var', _key('value')]);
+      var _typeof = _create(['var', _key('typeof')]);
+      var _array = _create(['var', _fakekey('array')]);
+      var _prop = _create(['var', _key('prop'), 'newvar']);
+      var _item = _create(['var', _key('item'), 'newvar']);
+      var _tail = _create(['var', _key('tail'), 'newvar']);
+      var _constructor = _create(['var', _key('ctor')]);
+      var _ref = _create(['var', _key('ref')]);
+      var _length = _create(['var', _key('length'), 'compare'], function(ex) {
+        return this.length === ex.length && this.compare === ex.compare;
+      });
+      var _done = _create([_key('done'), 'result']);
+      var _any = _create(['var', _fakekey('any')]);
+    
+    
+      return function parse(pattern, idx, helper) {
+        var cmds = [];
+        var refs = {};
+        function addCmd(c) { cmds.push(c); }
+        function addRef(varname, ref) {
+          if (refs[ref]) {
+            addCmd(_ref(varname, refs[ref]));
+          }
+          refs[ref] = varname;
         }
-        refs[ref] = varname;
+    
+        function parse(varname, part, cannotBeNull) {
+          var tv, i, key;
+          var ref = helper.getResultRef(part);
+          if (ref) {
+            addRef(varname, ref);
+          }
+          if (helper.isWildcard(part) || helper.isResultVar(part)) {
+            if (!cannotBeNull) {
+              addCmd(_any(varname));
+            }
+            return;
+          }
+    
+          if (Array.isArray(part)) {
+            addCmd(_array(varname));
+            var splitted = helper.resolveTail(part);
+            var enumerated = splitted[0];
+            var tail = splitted[1];
+            addCmd(_length(varname, enumerated.length, tail ? '>=' : '=='));
+            for (i = 0; i < enumerated.length; i++) {
+              tv = varname + "[" + i + "]";
+              addCmd(_item(varname, i, tv));
+              parse(tv, enumerated[i]);
+            }
+            if (tail) {
+              tv = varname + ".slice(" + enumerated.length + ")";
+              addCmd(_tail(varname, enumerated.length, tv));
+              parse(tv, tail, true);
+            }
+          }
+          else if (typeof part === 'object') {
+            addCmd(_typeof(varname, 'object'));
+            var keys = Object.keys(part);
+            keys.sort();
+            for (i = 0; i < keys.length; i++) {
+              key = keys[i];
+              tv = varname + "." + key;
+              addCmd(_prop(varname, key, tv));
+              parse(tv, part[key]);
+            }
+          }
+          else if (typeof part === 'function') {
+            addCmd(_constructor(varname, part.name));
+          }
+          else {
+            addCmd(_value(varname, part));
+          }
+        }
+    
+        parse(firstArgName, pattern);
+        addCmd(_done(idx, refs));
+        return _parsedPattern(cmds);
+      };
+    
+    
+      function _eq(prop) {
+        return function(ex) {
+          return ex.var === this.var && this[prop] === ex[prop];
+        }
       }
-  
-      function parse(varname, part, cannotBeNull) {
-        var tv, i, key;
-        vars.push(varname);
-        var ref = helper.getResultRef(part);
-        if (ref) {
-          addRef(varname, ref);
-        }
-        if (helper.isWildcard(part) || helper.isResultVar(part)) {
-          if (!cannotBeNull) {
-            cmd(_any(varname));
+    
+      function _create(args, customeq) {
+        return function() {
+          var o = {};
+          for (var i = 0; i < args.length; i++) {
+            var k = args[i], value = arguments[i];
+            if (k.key) {
+              if (k.fake) value = true;
+              k = k.key;
+              o.eq = _eq(k)
+            }
+            o[k] = value;
           }
-          return;
-        }
-  
-        if (Array.isArray(part)) {
-          cmd(_array(varname));
-          var splitted = helper.resolveTail(part);
-          var enumerated = splitted[0];
-          var tail = splitted[1];
-          cmd(_length(varname, enumerated.length, tail ? '>=' : '=='));
-          for (i = 0; i < enumerated.length; i++) {
-            tv = varname + "[" + i + "]";
-            cmd(_item(varname, i, tv));
-            parse(tv, enumerated[i]);
-          }
-          if (tail) {
-            tv = varname + ".slice(" + enumerated.length + ")";
-            cmd(_tail(varname, enumerated.length, tv));
-            parse(tv, tail, true);
-          }
-        }
-        else if (typeof part === 'object') {
-          cmd(_typeof(varname, 'object'));
-          var keys = Object.keys(part);
-          keys.sort();
-          for (i = 0; i < keys.length; i++) {
-            key = keys[i];
-            tv = varname + "." + key;
-            cmd(_prop(varname, key, tv));
-            parse(tv, part[key]);
-          }
-        }
-        else if (typeof part === 'function') {
-          cmd(_constructor(varname, part.name));
-        }
-        else {
-          cmd(_value(varname, part));
+          if (customeq) o.eq = customeq;
+          return o;
         }
       }
-  
-      parse(firstArgName, pattern);
-      cmd(_done(idx, refs));
-      return _parsedPattern(cmds, vars);
-    }
-  
-  
-    function regroup(patterns) {
-  
-  
+    }  function createRegrouper() {
+    
       function flow(patterns, idx) {
+        if (patterns.length == 1) return patterns[0].cmds;
         var cmds = [], i;
         while (patterns.length > 0) {
-          patterns = patterns.filter(function(p){ return p.cmds[idx]; });
+          patterns = patterns.filter(_notEmpty);
           if (patterns.length == 0) break;
           var forks = [{cmd: patterns[0].cmds[idx], patterns: [patterns[0]]}];
           for (i = 1; i < patterns.length; i++) {
@@ -176,12 +198,13 @@
             cmds.push(forks[0].cmd);
           }
           else {
-            cmds.push({fork: forks.map(function(f) {
-              return {
-                if: f.cmd,
-                then: flow(f.patterns, idx + 1)
-              }
-            })
+            cmds.push({
+              fork: forks.map(function (f) {
+                return {
+                  if: f.cmd,
+                  then: flow(f.patterns, idx + 1)
+                }
+              })
             });
             break;
           }
@@ -189,154 +212,155 @@
         }
         return cmds;
       }
-  
-      return _parsedPattern(flow(patterns, 0), []);
-  
-    }
-  
-  
-  
-    function createFn(grouped, options) {
-      options = options || {};
-      if (options.printParsed) {
-        console.log(_toString(grouped));
-      }
-  
-      function addPad(pad, item) {
-        return new Array(pad + 1).join(" ") + item;
-      }
-  
-      var tempVars = {}, nextVar = 1;
-  
-      function assignTemp(cmd, prefix) {
-        var orig = typeof cmd == 'object' ? cmd.var : cmd;
-        if (!tempVars[orig]) {
-          tempVars[orig] = prefix + "$" + nextVar;
-          nextVar++;
+    
+    
+      return function regroup(patterns) {
+        return _parsedPattern(flow(patterns, 0));
+      };
+    
+    }  function createRenderer(firstArgName, secondArgName) {
+    
+      var padStep = "  ";
+    
+      return function createFn(grouped, options) {
+        options = options || {};
+        if (options.debug.parsed) {
+          console.log(_toString(grouped));
         }
-        return tempVars[orig];
-      }
-  
-      function varname(cmd) {
-        var orig = typeof cmd == 'object' ? cmd.var : cmd;
-        return tempVars[orig] || orig;
-      }
-  
-      function notNull(cmd) {
-        return varname(cmd) + " != null";
-      }
-  
-      function renderCondition(cmd) {
-        if (cmd.typeof != null) {
-          return notNull(cmd) + " && typeof " + varname(cmd) + " === '" + cmd.typeof + "'";
+    
+        function addPad(pad, item) {
+          return pad + item;
         }
-        else if (cmd.ctor != null) {
-          return notNull(cmd) + " && " + varname(cmd) + ".constructor.name === " + JSON.stringify(cmd.ctor)
-        }
-        else if (cmd.ref != null) {
-          return varname(cmd) + " === " + varname({var: cmd.ref});
-        }
-        else if (cmd.array != null) {
-          return "Array.isArray(" + varname(cmd) + ")";
-        }
-        else if (cmd.value != null) {
-          return varname(cmd) + " === " + JSON.stringify(cmd.value);
-        }
-        else if (cmd.length != null) {
-          return varname(cmd) + ".length " + cmd.compare + " " + cmd.length;
-        }
-        else if (cmd.any) {
-          return notNull(cmd);
-        }
-        return null;
-      }
-  
-      function renderDebug(condition) {
-        if (options.debug && condition != null) {
-          return "if (!(" + condition + ")) {console.log('[PROKRUST] ' + " + JSON.stringify(condition) + " + ' -> failed' );}"
-        }
-        return "";
-      }
-  
-      function renderFork(pad, fork) {
-        var cond = renderCondition(fork.if);
-        var ifExpr = cond == null ? "" : "if (" + cond + ") ";
-        return renderDebug(cond) + [
-          addPad(pad, ifExpr + "do {")
-        ].concat(renderExpressions("break", pad + 2, fork.then)).concat([
-            addPad(pad, "} while (false);")
-          ]).join("\n");
-      }
-  
-      function renderExpressions(ret, pad, cmds) {
-        return cmds.map(renderExpression.bind(null, ret, pad)).filter(function(i) {return i;}).map(addPad.bind(null, pad));
-      }
-  
-      function renderConditionCheck(cond, ret) {
-        return renderDebug(cond) + "if (!(" + cond + ")) " + ret + ";";
-      }
-  
-      function renderExpression(ret, pad, cmd) {
-        //if (cmd.any) return undefined;
-        var cond = renderCondition(cmd);
-        if (cond) {
-          return renderConditionCheck(cond, ret);
-        }
-        else if (cmd.prop != null) {
-          //TODO: assign temp only if variable used more than once
-          return assignTemp(cmd.newvar, cmd.prop) + " = " + varname(cmd) + "." + cmd.prop;
-        }
-        else if (cmd.item != null) {
-          return assignTemp(cmd.newvar, "item"+cmd.item) + " = " + varname(cmd) + "[" + cmd.item + "]";
-        }
-        else if (cmd.done != null) {
-          var result = [];
-          for (var ref in cmd.result) {
-            if (!cmd.result.hasOwnProperty(ref)) continue;
-            result.push("'" + ref + "': " + varname(cmd.result[ref]));
+    
+        var temp = {
+          vars: {},
+          next: 1,
+          isEmpty: function() { return this.next == 1; },
+          all: []
+        };
+    
+        function assignTemp(cmd, prefix) {
+          var orig = typeof cmd == 'object' ? cmd.var : cmd;
+          if (!temp.vars[orig]) {
+            temp.all.push(temp.vars[orig] = prefix + "$" + temp.next);
+            temp.next++;
           }
-          return "if (" + secondArgName + "[" + cmd.done + "]({" + result.join(', ') + "})) return true;"
+          return temp.vars[orig];
         }
-        else if (cmd.tail) {
-          return assignTemp(cmd.newvar, "tail") + " = " + varname(cmd) + ".slice(" + cmd.tail + ")";
+    
+        function varname(cmd) {
+          var orig = typeof cmd == 'object' ? cmd.var : cmd;
+          return temp.vars[orig] || orig;
         }
-        else if (cmd.fork) {
-  
-          return "//fork\n" + cmd.fork.map(function(fork) {
-              if (fork.if.done != null)
-                return renderExpression(ret, pad, fork.if); //TODO: fix pad
-              return renderFork(pad, fork);
-            }).join("\n");
+    
+        function notNull(cmd) {
+          return varname(cmd) + " != null";
         }
-        else {
-          throw new Error("Unexpected expression: " + JSON.stringify(cmd));
+    
+        function renderCondition(cmd) {
+          if (cmd.typeof != null) {
+            return notNull(cmd) + " && typeof " + varname(cmd) + " === '" + cmd.typeof + "'";
+          }
+          else if (cmd.ctor != null) {
+            return notNull(cmd) + " && " + varname(cmd) + ".constructor.name === " + JSON.stringify(cmd.ctor)
+          }
+          else if (cmd.ref != null) {
+            return varname(cmd) + " === " + varname({var: cmd.ref});
+          }
+          else if (cmd.array != null) {
+            return "Array.isArray(" + varname(cmd) + ")";
+          }
+          else if (cmd.value != null) {
+            return varname(cmd) + " === " + JSON.stringify(cmd.value);
+          }
+          else if (cmd.length != null) {
+            return varname(cmd) + ".length " + cmd.compare + " " + cmd.length;
+          }
+          else if (cmd.any) {
+            return notNull(cmd);
+          }
+          return null;
         }
-  
-      }
-  
-      var code =
-        renderExpressions("return false", 2, grouped.cmds).join("\n");
-      var declareVars = Object.keys(tempVars).length ? "var " + Object.keys(tempVars).map(function(i) { return tempVars[i];}).join(",") + ";\n" : "";
-      try {
-        var fn = new Function(firstArgName, secondArgName, declareVars+code);
-        if (options.printFunctions) {
-          console.log(fn.toString());
+    
+        function renderDebug(condition) {
+          if (options.debug.matching && condition != null) {
+            return ["if (!(" + condition + ")) {console.log('[PROKRUST] ' + " + JSON.stringify(condition) + " + ' -> failed' );}"]
+          }
+          return [];
         }
-        return fn;
-      }
-      catch (e) {
-        if (options.debug) console.error(code);
-        console.error(e);
-        throw e;
+    
+        function renderFork(pad, fork) {
+          var cond = renderCondition(fork.if);
+          var ifExpr = cond == null ? "" : "if (" + cond + ") ";
+          return renderDebug(cond)
+            .concat([ifExpr + "do {"])
+            .concat(renderExpressions("break", pad, fork.then))
+            .concat(["} while(false);"]);
+        }
+    
+        function renderExpressions(ret, pad, cmds) {
+          return _flat(cmds.map(renderExpression.bind(null, ret, pad)).filter(_notEmpty)).map(addPad.bind(null, pad));
+        }
+    
+        function renderConditionCheck(cond, ret) {
+          return renderDebug(cond) + "if (!(" + cond + ")) " + ret + ";";
+        }
+    
+        function renderExpression(ret, pad, cmd) {
+          var cond = renderCondition(cmd);
+          if (cond) {
+            return renderConditionCheck(cond, ret);
+          }
+          else if (cmd.prop != null) {
+            //TODO: assign temp only if variable used more than once
+            return assignTemp(cmd.newvar, cmd.prop) + " = " + varname(cmd) + "." + cmd.prop + ";";
+          }
+          else if (cmd.item != null) {
+            return assignTemp(cmd.newvar, "item" + cmd.item) + " = " + varname(cmd) + "[" + cmd.item + "];";
+          }
+          else if (cmd.done != null) {
+            var result = [];
+            for (var ref in cmd.result) {
+              if (!cmd.result.hasOwnProperty(ref)) continue;
+              result.push("'" + ref + "': " + varname(cmd.result[ref]));
+            }
+            return "if (" + secondArgName + "[" + cmd.done + "]({" + result.join(', ') + "})) return true;"
+          }
+          else if (cmd.tail) {
+            return assignTemp(cmd.newvar, "tail") + " = " + varname(cmd) + ".slice(" + cmd.tail + ");";
+          }
+          else if (cmd.fork) {
+            return cmd.fork.map(function (fork) {
+                if (fork.if.done != null)
+                  return renderExpression(ret, pad, fork.if);
+                return renderFork(pad, fork);
+              })
+          }
+          else {
+            throw new Error("Unexpected expression: " + JSON.stringify(cmd));
+          }
+    
+        }
+    
+        var code = renderExpressions("return false", padStep, grouped.cmds);
+        if (!temp.isEmpty()) {
+          code.unshift(padStep + "var " + temp.all.join(", ") + ";")
+        }
+        try {
+          var fn = new Function(firstArgName, secondArgName, code.join("\n"));
+          if (options.debug.functions) {
+            console.log(fn.toString());
+          }
+          return fn;
+        }
+        catch (e) {
+          console.error("Cannot parse generated function code:\n" + code.join("\n"));
+          console.error();
+          console.error(e);
+          throw e;
+        }
       }
     }
-  
-    return function compilePattern(patterns, helper) {
-      return createFn(regroup(patterns.map(function(pattern, idx) {
-        return parse(pattern, idx, helper);
-      })), helper.renderOptions);
-    }
-  
   })();
   
     var _ = new Placeholder("_");
@@ -375,7 +399,6 @@
         }
         return this.__id;
       },
-      clone: function() { return new Placeholder(this.__key, this.__id); },
       meet: function() {
         var specific = context.metvars[this.__key];
         if (specific == null) {
@@ -440,7 +463,6 @@
         compiled = doCompilePatterns(patterns, context.metvars);
       }
       catch (e) {
-        if (compiled && exports.debug) console.error(compiled.toString());
         console.error(e, e.stack);
         throw e;
       }
@@ -469,9 +491,7 @@
         isResultVar: function(o) {return o instanceof Placeholder;},
         isWildcard: function(i) { return i === _;},
         renderOptions: {
-          debug: exports.debug,
-          printParsed: exports.printParsed,
-          printFunctions: exports.printFunctions
+          debug: exports.debug
         },
         resolveTail: function(array) {
           if (!array.length) return [array];
@@ -496,8 +516,11 @@
       }
       return {pattern: pattern, produceWhenFn: function produceWhenFn(resultHolder) {
         return function(ctx) {
-          var result = execute.call(ctx);
-          if (ctx.__rejected) return false;
+          var rejected = false;
+          var result = execute.call(ctx, function rejector() {
+            rejected = true;
+          });
+          if (rejected) return false;
           resultHolder.result = result;
           return true;
         }
@@ -507,9 +530,9 @@
     
     function Having(guardFn) {
       return function(execute) {
-        return function() {
+        return function(rejector) {
           if (!guardFn.call(this)) {
-            return this.__rejected = true;
+            return rejector();
           }
           return execute.call(this);
         }
@@ -573,8 +596,10 @@
   exports.When = When;
   exports.Having = Having;
   exports.Tail = Tail;
-  exports.debug = false;
-  exports.printFunctions = false;
-  exports.printParsed = false;
+  exports.debug = {
+    functions: false,
+    parsed: false,
+    matching: false
+  };
 
 })(typeof exports === 'undefined'? this['pattern-matching']={}: exports);

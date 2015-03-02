@@ -34,7 +34,6 @@ Placeholder.prototype = {
     }
     return this.__id;
   },
-  clone: function() { return new Placeholder(this.__key, this.__id); },
   meet: function() {
     var specific = context.metvars[this.__key];
     if (specific == null) {
@@ -99,7 +98,6 @@ function Match(whensFactories) {
     compiled = doCompilePatterns(patterns, context.metvars);
   }
   catch (e) {
-    if (compiled && exports.debug) console.error(compiled.toString());
     console.error(e, e.stack);
     throw e;
   }
@@ -128,9 +126,7 @@ function doCompilePatterns(patterns, allVarsDict) {
     isResultVar: function(o) {return o instanceof Placeholder;},
     isWildcard: function(i) { return i === _;},
     renderOptions: {
-      debug: exports.debug,
-      printParsed: exports.printParsed,
-      printFunctions: exports.printFunctions
+      debug: exports.debug
     },
     resolveTail: function(array) {
       if (!array.length) return [array];
@@ -155,8 +151,11 @@ function When(pattern, execute) {
   }
   return {pattern: pattern, produceWhenFn: function produceWhenFn(resultHolder) {
     return function(ctx) {
-      var result = execute.call(ctx);
-      if (ctx.__rejected) return false;
+      var rejected = false;
+      var result = execute.call(ctx, function rejector() {
+        rejected = true;
+      });
+      if (rejected) return false;
       resultHolder.result = result;
       return true;
     }
@@ -166,9 +165,9 @@ function When(pattern, execute) {
 
 function Having(guardFn) {
   return function(execute) {
-    return function() {
+    return function(rejector) {
       if (!guardFn.call(this)) {
-        return this.__rejected = true;
+        return rejector();
       }
       return execute.call(this);
     }

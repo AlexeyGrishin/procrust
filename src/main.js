@@ -8,8 +8,10 @@
   exports.When = When;
   exports.Having = Having;
   exports.Tail = Tail;
-  exports.debug = false;
-  exports.printFunctions = false;
-  exports.printParsed = false;
+  exports.debug = {
+    functions: false,
+    parsed: false,
+    matching: false
+  };
 
 })(typeof exports === 'undefined'? this['pattern-matching']={}: exports);
