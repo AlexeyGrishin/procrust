@@ -18,7 +18,7 @@ function _flat(array) {
 
 function _toString(ex) {
   if (ex.cmds) {
-    return ex.vars.join(',') + "\n\n" + ex.cmds.map(_toString).join('\n')
+    return ex.cmds.map(_toString).join('\n')
   }
   var txt = '';
   if (ex.newvar) {
@@ -46,4 +46,10 @@ function _toString(ex) {
     txt = "done(" + [ex.done].concat(JSON.stringify(ex.result)).join(',') + ")";
   }
   return txt;
+}
+
+
+function ObjectMatcher(klass, props) {
+  this.klass = klass.name;
+  this.props = props;
 }

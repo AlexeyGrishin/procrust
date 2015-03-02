@@ -1,5 +1,5 @@
 jest.dontMock '../procrust'
-{Tail, Match, When, Having, functionMatch} = pm = require('../procrust')
+{Tail, Match, When, Having, ObjectOf, functionMatch} = pm = require('../procrust')
 
 class MyClass
 
@@ -118,6 +118,32 @@ describe 'Match', ->
     it 'shall destruct whole structs and struct parts', ->
       fn = Match -> [When {a: @a = {b: @b}}, -> [@a, @b]]
       expect(fn {a: {b: 3, c: 4}}).toEqual([{b:3,c:4},3])
+
+    class MyClass1
+      constructor: (@x, @y) ->
+
+    class MyClass2
+      constructor: (@x, @y) ->
+        return m if m = ObjectOf(@, MyClass2, arguments)
+
+    fnClass = Match -> [
+      When @o = ObjectOf(MyClass1, x:3, y:@y), -> [@y, @o.y]
+      When MyClass1, -> "class1"
+      When @o = MyClass2(x:5, y:@y), -> [@y, @o.y]
+      When MyClass2, -> "class2"
+    ]
+    it 'shall not break default class behavior', ->
+      m = new MyClass2(1,2)
+      expect(m instanceof MyClass2).toBeTruthy()
+      expect(m.x).toEqual(1)
+      expect(m.y).toEqual(2)
+    it 'shall destruct struct of specific type with specific properties using ObjectOf', ->
+      expect(fnClass new MyClass1(3, 10)).toEqual([10, 10])
+      expect(fnClass new MyClass1(4, 10)).toEqual("class1")
+    it 'shall destruct struct of specific type with specific properties using special constructor', ->
+      expect(fnClass new MyClass2(5, 11)).toEqual([11, 11])
+      expect(fnClass new MyClass2(4, 11)).toEqual("class2")
+
 
   it 'shall check identity if same variable met twice', ->
     fn = Match -> [

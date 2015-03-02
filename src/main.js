@@ -1,5 +1,6 @@
 (function(exports){
 
+  // #include "common.js"
   // #include "compiler.js"
   // #include "matcher.js"
 
@@ -8,6 +9,7 @@
   exports.When = When;
   exports.Having = Having;
   exports.Tail = Tail;
+  exports.ObjectOf = ObjectOf;
   exports.debug = {
     functions: false,
     parsed: false,

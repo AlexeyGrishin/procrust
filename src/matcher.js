@@ -53,6 +53,7 @@ function createPlaceholder(name) {
       return placeholder.meet();
     },
     set: function(vl) {
+      if (vl === null) return;
       if (vl.__key) throw new Error("Cannot assign pattern variables to each other!");
       if (typeof vl == "object") {
         Object.defineProperty(vl, "__reference", {
@@ -187,6 +188,19 @@ function functionMatch() {
 function Tail(vr) {
   vr.__tail = true;
   return vr;
+}
+
+var global = (function() { return this;})();
+function ObjectOf() {
+  if (arguments[0] === global) {
+    //constructor called as function, matching case
+    return new ObjectMatcher(arguments[1], arguments[2][0]);
+  } else if (typeof arguments[0] === 'function') {
+    return new ObjectMatcher(arguments[0], arguments[1]);
+  } else {
+    //this is normally created object, ignore
+    return null;
+  }
 }
 
 function bitwiseOrDetector(list, myVars) {

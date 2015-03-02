@@ -1,7 +1,7 @@
 function createRegrouper() {
 
   function flow(patterns, idx) {
-    if (patterns.length == 1) return patterns[0].cmds;
+    if (patterns.length == 1) return patterns[0].cmds.slice(idx);
     var cmds = [], i;
     while (patterns.length > 0) {
       patterns = patterns.filter(_notEmpty);

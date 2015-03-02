@@ -14,7 +14,6 @@ var compilePattern = (function() {
     })), helper.renderOptions);
   };
 
-  // #include "common.js"
   // #include "parser.js"
   // #include "regrouper.js"
   // #include "renderer.js"

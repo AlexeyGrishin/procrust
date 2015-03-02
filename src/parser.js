@@ -61,6 +61,10 @@ function createParser(firstArgName) {
       }
       else if (typeof part === 'object') {
         addCmd(_typeof(varname, 'object'));
+        if (part instanceof ObjectMatcher) {
+          addCmd(_constructor(varname, part.klass));
+          part = part.props;
+        }
         var keys = Object.keys(part);
         keys.sort();
         for (i = 0; i < keys.length; i++) {
