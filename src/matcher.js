@@ -5,13 +5,13 @@ _.meet = function() {
 
 //Global context - used to pass data from Match to Whens
 var context = {
-  vars: [],
   kvars: {},
-  metvars: {},
+  idvars: {},
   placeholderId: 1,
+  waitingForHead: true,
   onNew: function() {
     this.placeholderId = 1;
-    this.metvars = {};
+    this.idvars = {};
   },
   nextPlaceholderId: function() {
     var id = this.placeholderId;
@@ -29,18 +29,17 @@ function Placeholder(key, id) {
 }
 Placeholder.prototype = {
   valueOf: function() {
-    if (this.__id == undefined) {
-      this.__id = context.nextPlaceholderId();
-    }
+    this.__id = context.nextPlaceholderId();
+    context.idvars[this.__id] = this;
+    if (context.waitingForHead)
+      this.__head = true;
+    else
+      this.__tail = true;
+    context.waitingForHead = !context.waitingForHead;
     return this.__id;
   },
   meet: function() {
-    var specific = context.metvars[this.__key];
-    if (specific == null) {
-      specific = new Placeholder(this.__key);
-      context.metvars[this.__key] = specific;
-    }
-    return specific;
+    return new Placeholder(this.__key);
   }
 };
 
@@ -101,7 +100,7 @@ function Match(whensFactories) {
   guards = _puck("guard", patternsAndFns);
   whenFns = _puck("execute", patternsAndFns);
   try {
-    compiled = doCompilePatterns(patterns, context.metvars);
+    compiled = doCompilePatterns(patterns, context.idvars);
   }
   catch (e) {
     console.error(e, e.stack);
@@ -118,11 +117,7 @@ function Match(whensFactories) {
   }
 }
 
-function doCompilePatterns(patterns, allVarsDict) {
-  var allVars = [];
-  for (var k in allVarsDict) {
-    if (allVarsDict.hasOwnProperty(k)) allVars.push(allVarsDict[k]);
-  }
+function doCompilePatterns(patterns, varsById) {
   return compilePattern(patterns, {
     getResultRef: function(o) {
       if (o === _) return null;
@@ -136,7 +131,7 @@ function doCompilePatterns(patterns, allVarsDict) {
     },
     resolveTail: function(array) {
       if (!array.length) return [array];
-      array = bitwiseOrDetector(array, allVars);
+      array = bitwiseOrDetector(array, varsById);
       var last = array[array.length-1];
       if (last.__tail) {
         array.pop();
@@ -202,7 +197,7 @@ function ObjectOf() {
   }
 }
 
-function bitwiseOrDetector(list, myVars) {
+function bitwiseOrDetector(list, varsById) {
   var last = list[list.length - 1];
   if (typeof last == "number") {
     //try to find by id
@@ -216,19 +211,9 @@ function bitwiseOrDetector(list, myVars) {
       id = id << 1;
     }
     if (ids.length == 2) {
-      var headId = ids[0];
-      var tailId = ids[1];
-      var append = [null, null];
-      for (var i = 0; i < myVars.length; i++) {
-        var vr = myVars[i];
-        if (vr.__id == headId) append[0] = vr;
-        if (vr.__id == tailId) {
-          append[1] = vr;
-          vr.__tail = true;
-        }
-      }
-      if (append[0] == null || append[1] == null) {
-        console.warn("Head/Tail detector seems to be broken");
+      var append = [varsById[ids[0]], varsById[ids[1]]];
+      if (append[0] == null || append[1] == null || !append[0].__head || !append[1].__tail) {
+        console.warn("Head/Tail detector seems to be broken", "Head=", append[0], "Tail=", append[1]);
       }
       else {
         list.pop();

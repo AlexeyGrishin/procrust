@@ -83,6 +83,14 @@ describe 'Match', ->
       ]
       expect(fnTail [1,2,3]).toEqual([2,3])
 
+    it 'shall destruct head and tail even same variables appear in different branches', ->
+      fn = Match -> [
+        When [10, @head1 | @tail], -> [@head1, @tail]
+        When [20, @head2 | @tail], -> [@head2, @tail]
+      ]
+      expect(fn [10, 1, 2]).toEqual([1,[2]])
+      expect(fn [20, 1, 2]).toEqual([1,[2]])
+
     fnStructSimple = Match -> [
       When @a = {x: 3}, -> @a
     ]
