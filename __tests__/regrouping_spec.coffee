@@ -1,5 +1,50 @@
 jest.dontMock '../procrust'
 {Tail, Match, When, Having, functionMatch} = pm = require('../procrust')
+{createRegrouper} = pm
+
+describe 'regrouper', ->
+
+  class Cmd
+    constructor: (@name) ->
+    toString: -> "[#{@name}]"
+    eq: (anotherCmd) ->
+      anotherCmd.name == @name
+
+  asFlow = (cmds) ->
+    cmds: cmds.split("").map (c) -> new Cmd(c)
+
+  asString = (flow) ->
+    flow.cmds.map((c) ->
+      if c.fork
+        c.fork.map((f) -> "[" + asString(cmds: [f.if].concat(f.then)) + "]").join("")
+      else
+        c.name
+    ).join("")
+
+  regroup = (flows...) -> asString(createRegrouper()(flows.map(asFlow)))
+
+  it 'shall return empty flow as is', ->
+    expect(regroup "").toEqual("")
+
+  it 'shall return single command flow as is', ->
+    expect(regroup "123").toEqual "123"
+
+  describe 'for 2 flows shall split command flow after equal commands ', ->
+
+    it 'at the beginning', ->
+      expect(regroup "abc", "Abc").toEqual("[abc][Abc]")
+    it 'at the end', ->
+      expect(regroup "abc", "abC").toEqual("ab[c][C]")
+
+  describe 'shall split 3 flows', ->
+    it 'on 3 different', ->
+      expect(regroup "..A.", "..B.", "..C..").toEqual("..[A.][B.][C..]")
+    it 'on 2 groups', ->
+      expect(regroup "...A!", "..B!!", ".C!!!").toEqual(".[.[.A!][B!!]][C!!!]")
+
+  it 'shall group non-neighbour flows', ->
+    expect(regroup "..1.A", "..2.B", "..1.C", "..2.D").toEqual("..[1.[A][C]][2.[B][D]]")
+
 
 describe 'big enough matching expression', ->
 
@@ -19,7 +64,7 @@ describe 'big enough matching expression', ->
   ]
 
   it "shall match all cases correctly", ->
-    console.log(fn.matchFn.toString())
+    #console.log(fn.matchFn.toString())
     expect(fn ['case', 1, 2]).toEqual("case1")
     expect(fn {case: 'case', x: 1, y: 10}).toEqual("case2")
     expect(fn ['case', 1, 2, 3]).toEqual("case3")

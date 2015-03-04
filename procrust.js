@@ -9,6 +9,10 @@
     return item != null;
   }
   
+  function _puck(name, ar) {
+    return ar.map(function(item) { return item[name];});
+  }
+  
   function _flat(array) {
     for (var i = array.length-1; i >=0; i--) {
       if (Array.isArray(array[i])) {
@@ -55,16 +59,18 @@
     this.klass = klass.name;
     this.props = props;
   }
-    
     var compilePattern = (function() {
     
       var firstArgName = "val";
       var secondArgName = "when";
+      var guardArgName = "guard";
     
       var parse = createParser(firstArgName);
       var regroup = createRegrouper();
-      var createFn = createRenderer(firstArgName, secondArgName);
+      var createFn = createRenderer(firstArgName, secondArgName, guardArgName);
     
+      //for unit tests
+      if (typeof exports !== 'undefined') exports.createRegrouper = createRegrouper;
     
       return function compilePattern(patterns, helper) {
         return createFn(regroup(patterns.map(function(pattern, idx) {
@@ -186,6 +192,12 @@
         }
       }  function createRegrouper() {
       
+        function forkFlow(idx) {
+          return function(fork) {
+            return {if: fork.cmd, then: flow(fork.patterns, idx)};
+          }
+        }
+      
         function flow(patterns, idx) {
           if (patterns.length == 1) return patterns[0].cmds.slice(idx);
           var cmds = [], i;
@@ -210,14 +222,7 @@
               cmds.push(forks[0].cmd);
             }
             else {
-              cmds.push({
-                fork: forks.map(function (f) {
-                  return {
-                    if: f.cmd,
-                    then: flow(f.patterns, idx + 1)
-                  }
-                })
-              });
+              cmds.push({fork: forks.map(forkFlow(idx + 1))});
               break;
             }
             idx++;
@@ -230,149 +235,152 @@
           return _parsedPattern(flow(patterns, 0));
         };
       
-      }  function createRenderer(firstArgName, secondArgName) {
-      
-        var padStep = "  ";
-      
-        return function createFn(grouped, options) {
-          options = options || {};
-          if (options.debug.parsed) {
-            console.log(_toString(grouped));
-          }
-      
-          function addPad(pad, item) {
-            return pad + item;
-          }
-      
-          var temp = {
-            vars: {},
-            next: 1,
-            isEmpty: function() { return this.next == 1; },
-            all: []
-          };
-      
-          function assignTemp(cmd, prefix) {
-            var orig = typeof cmd == 'object' ? cmd.var : cmd;
-            if (!temp.vars[orig]) {
-              temp.all.push(temp.vars[orig] = prefix + "$" + temp.next);
-              temp.next++;
+      }
+        function createRenderer(firstArgName, secondArgName, guardArgName) {
+        
+          var padStep = "  ";
+          var resVarName = "res";
+        
+          return function createFn(grouped, options) {
+            options = options || {};
+            if (options.debug.parsed) {
+              console.log(_toString(grouped));
             }
-            return temp.vars[orig];
-          }
-      
-          function varname(cmd) {
-            var orig = typeof cmd == 'object' ? cmd.var : cmd;
-            return temp.vars[orig] || orig;
-          }
-      
-          function notNull(cmd) {
-            return varname(cmd) + " != null";
-          }
-      
-          function renderCondition(cmd) {
-            if (cmd.typeof != null) {
-              return notNull(cmd) + " && typeof " + varname(cmd) + " === '" + cmd.typeof + "'";
+        
+            function addPad(pad, item) {
+              return pad + item;
             }
-            else if (cmd.ctor != null) {
-              return notNull(cmd) + " && " + varname(cmd) + ".constructor.name === " + JSON.stringify(cmd.ctor)
-            }
-            else if (cmd.ref != null) {
-              return varname(cmd) + " === " + varname({var: cmd.ref});
-            }
-            else if (cmd.array != null) {
-              return "Array.isArray(" + varname(cmd) + ")";
-            }
-            else if (cmd.value != null) {
-              return varname(cmd) + " === " + JSON.stringify(cmd.value);
-            }
-            else if (cmd.length != null) {
-              return varname(cmd) + ".length " + cmd.compare + " " + cmd.length;
-            }
-            else if (cmd.any) {
-              return notNull(cmd);
-            }
-            return null;
-          }
-      
-          function renderDebug(condition) {
-            if (options.debug.matching && condition != null) {
-              return ["if (!(" + condition + ")) {console.log('[PROKRUST] ' + " + JSON.stringify(condition) + " + ' -> failed' );}"]
-            }
-            return [];
-          }
-      
-          function renderFork(pad, fork) {
-            var cond = renderCondition(fork.if);
-            var ifExpr = cond == null ? "" : "if (" + cond + ") ";
-            return renderDebug(cond)
-              .concat([ifExpr + "do {"])
-              .concat(renderExpressions("break", pad, fork.then))
-              .concat(["} while(false);"]);
-          }
-      
-          function renderExpressions(ret, pad, cmds) {
-            return _flat(cmds.map(renderExpression.bind(null, ret, pad)).filter(_notEmpty)).map(addPad.bind(null, pad));
-          }
-      
-          function renderConditionCheck(cond, ret) {
-            return renderDebug(cond) + "if (!(" + cond + ")) " + ret + ";";
-          }
-      
-          function renderExpression(ret, pad, cmd) {
-            var cond = renderCondition(cmd);
-            if (cond) {
-              return renderConditionCheck(cond, ret);
-            }
-            else if (cmd.prop != null) {
-              //TODO: assign temp only if variable used more than once
-              return assignTemp(cmd.newvar, cmd.prop) + " = " + varname(cmd) + "." + cmd.prop + ";";
-            }
-            else if (cmd.item != null) {
-              return assignTemp(cmd.newvar, "item" + cmd.item) + " = " + varname(cmd) + "[" + cmd.item + "];";
-            }
-            else if (cmd.done != null) {
-              var result = [];
-              for (var ref in cmd.result) {
-                if (!cmd.result.hasOwnProperty(ref)) continue;
-                result.push("'" + ref + "': " + varname(cmd.result[ref]));
+        
+            var temp = {
+              vars: {},
+              next: 1,
+              isEmpty: function() { return this.next == 1; },
+              all: []
+            };
+        
+            function assignTemp(cmd, prefix) {
+              var orig = typeof cmd == 'object' ? cmd.var : cmd;
+              if (!temp.vars[orig]) {
+                temp.all.push(temp.vars[orig] = prefix + "$" + temp.next);
+                temp.next++;
               }
-              return "if (" + secondArgName + "[" + cmd.done + "]({" + result.join(', ') + "})) return true;"
+              return temp.vars[orig];
             }
-            else if (cmd.tail) {
-              return assignTemp(cmd.newvar, "tail") + " = " + varname(cmd) + ".slice(" + cmd.tail + ");";
+        
+            function varname(cmd) {
+              var orig = typeof cmd == 'object' ? cmd.var : cmd;
+              return temp.vars[orig] || orig;
             }
-            else if (cmd.fork) {
-              return cmd.fork.map(function (fork) {
-                  if (fork.if.done != null)
-                    return renderExpression(ret, pad, fork.if);
-                  return renderFork(pad, fork);
-                })
+        
+            function notNull(cmd) {
+              return varname(cmd) + " != null";
             }
-            else {
-              throw new Error("Unexpected expression: " + JSON.stringify(cmd));
+        
+            function renderCondition(cmd) {
+              if (cmd.typeof != null) {
+                return notNull(cmd) + " && typeof " + varname(cmd) + " === '" + cmd.typeof + "'";
+              }
+              else if (cmd.ctor != null) {
+                return notNull(cmd) + " && " + varname(cmd) + ".constructor.name === " + JSON.stringify(cmd.ctor)
+              }
+              else if (cmd.ref != null) {
+                return varname(cmd) + " === " + varname({var: cmd.ref});
+              }
+              else if (cmd.array != null) {
+                return "Array.isArray(" + varname(cmd) + ")";
+              }
+              else if (cmd.value != null) {
+                return varname(cmd) + " === " + JSON.stringify(cmd.value);
+              }
+              else if (cmd.length != null) {
+                return varname(cmd) + ".length " + cmd.compare + " " + cmd.length;
+              }
+              else if (cmd.any) {
+                return notNull(cmd);
+              }
+              return null;
             }
-      
-          }
-      
-          var code = renderExpressions("return false", padStep, grouped.cmds);
-          if (!temp.isEmpty()) {
-            code.unshift(padStep + "var " + temp.all.join(", ") + ";")
-          }
-          try {
-            var fn = new Function(firstArgName, secondArgName, code.join("\n"));
-            if (options.debug.functions) {
-              console.log(fn.toString());
+        
+            function renderDebug(condition) {
+              if (options.debug.matching && condition != null) {
+                return ["if (!(" + condition + ")) {console.log('[PROKRUST] ' + " + JSON.stringify(condition) + " + ' -> failed' );}"]
+              }
+              return [];
             }
-            return fn;
-          }
-          catch (e) {
-            console.error("Cannot parse generated function code:\n" + code.join("\n"));
-            console.error();
-            console.error(e);
-            throw e;
+        
+            function renderFork(pad, fork) {
+              var cond = renderCondition(fork.if);
+              var ifExpr = cond == null ? "" : "if (" + cond + ") ";
+              return renderDebug(cond)
+                .concat([ifExpr + "do {"])
+                .concat(renderExpressions("break", pad, fork.then))
+                .concat(["} while(false);"]);
+            }
+        
+            function renderExpressions(ret, pad, cmds) {
+              return _flat(cmds.map(renderExpression.bind(null, ret, pad)).filter(_notEmpty)).map(addPad.bind(null, pad));
+            }
+        
+            function renderConditionCheck(cond, ret) {
+              return renderDebug(cond) + "if (!(" + cond + ")) " + ret + ";";
+            }
+        
+            function renderExpression(ret, pad, cmd) {
+              var cond = renderCondition(cmd);
+              if (cond) {
+                return renderConditionCheck(cond, ret);
+              }
+              else if (cmd.prop != null) {
+                //TODO: assign temp only if variable used more than once
+                return assignTemp(cmd.newvar, cmd.prop) + " = " + varname(cmd) + "." + cmd.prop + ";";
+              }
+              else if (cmd.item != null) {
+                return assignTemp(cmd.newvar, "item" + cmd.item) + " = " + varname(cmd) + "[" + cmd.item + "];";
+              }
+              else if (cmd.done != null) {
+                var result = [];
+                for (var ref in cmd.result) {
+                  if (!cmd.result.hasOwnProperty(ref)) continue;
+                  result.push("'" + ref + "': " + varname(cmd.result[ref]));
+                }
+                return [
+                  resVarName + " = {" + result.join(', ') + "};",
+                  "if (" + guardArgName + "[" + cmd.done + "] && " + guardArgName + "[" + cmd.done + "](" + resVarName + ")) return {ok: " + secondArgName + "[" + cmd.done + "](" + resVarName + ")};"
+                  ]
+              }
+              else if (cmd.tail) {
+                return assignTemp(cmd.newvar, "tail") + " = " + varname(cmd) + ".slice(" + cmd.tail + ");";
+              }
+              else if (cmd.fork) {
+                return cmd.fork.map(function (fork) {
+                    if (fork.if.done != null)
+                      return renderExpression(ret, pad, fork.if);
+                    return renderFork(pad, fork);
+                  })
+              }
+              else {
+                throw new Error("Unexpected expression: " + JSON.stringify(cmd));
+              }
+        
+            }
+        
+            var code = renderExpressions("return false", padStep, grouped.cmds);
+            code.unshift(padStep + "var " + [resVarName].concat(temp.all).join(", ") + ";");
+            try {
+              var fn = new Function(firstArgName, secondArgName, guardArgName, code.join("\n"));
+              if (options.debug.functions) {
+                console.log(fn.toString());
+              }
+              return fn;
+            }
+            catch (e) {
+              console.error("Cannot parse generated function code:\n" + code.join("\n"));
+              console.error();
+              console.error(e);
+              throw e;
+            }
           }
         }
-      }
     })();
     
       var _ = new Placeholder("_");
@@ -459,8 +467,7 @@
       
       
       function Match(whensFactories) {
-        var value, patternsAndFns, patterns, whenFns, compiled;
-        var resultsHolder = {result: null};
+        var value, patternsAndFns, patterns, whenFns, guards, compiled;
         if (arguments.length == 2) {
           if (typeof arguments[1] == 'function' && typeof arguments[0] != 'function') {
             value = arguments[0];
@@ -470,8 +477,9 @@
         getAll(/this\.([a-zA-Z0-9_]+)/gi, whensFactories.toString()).map(createPlaceholder);
         context.onNew();
         patternsAndFns = whensFactories.call(context.kvars);
-        patterns = patternsAndFns.map(function(p) { return p.pattern;});
-        whenFns = patternsAndFns.map(function(p) { return p.produceWhenFn(resultsHolder);});
+        patterns = _puck("pattern", patternsAndFns);
+        guards = _puck("guard", patternsAndFns);
+        whenFns = _puck("execute", patternsAndFns);
         try {
           compiled = doCompilePatterns(patterns, context.metvars);
         }
@@ -484,8 +492,8 @@
         return match;
       
         function match(value) {
-          var ok = compiled(value, whenFns);
-          if (ok) return resultsHolder.result;
+          var res = compiled(value, whenFns, guards);
+          if (res && res.ok) return res.ok;
           throw new Error("Value is not matched by any condition: '" + value + "'");
         }
       }
@@ -527,28 +535,22 @@
           execute = args.pop();
           pattern = args;
         }
-        return {pattern: pattern, produceWhenFn: function produceWhenFn(resultHolder) {
-          return function(ctx) {
-            var rejected = false;
-            var result = execute.call(ctx, function rejector() {
-              rejected = true;
-            });
-            if (rejected) return false;
-            resultHolder.result = result;
-            return true;
+        var guards = [];
+        var guardSucceeded = function() { return true;};
+        if (Array.isArray(execute)) {
+          guards = execute;
+          execute = guards.pop();
+          guardSucceeded = function(ctx) {
+            return !guards.some(function(g) { return !g.call(ctx); })
           }
-        }};
+        }
+        return {pattern: pattern, guard: guardSucceeded, execute: function(ctx) { return execute.call(ctx); }};
       
       }
       
       function Having(guardFn) {
         return function(execute) {
-          return function(rejector) {
-            if (!guardFn.call(this)) {
-              return rejector();
-            }
-            return execute.call(this);
-          }
+          return [guardFn, execute]
         }
       }
       
@@ -576,7 +578,7 @@
           return new ObjectMatcher(arguments[0], arguments[1]);
         } else {
           //this is normally created object, ignore
-          return null;
+          return false;
         }
       }
       

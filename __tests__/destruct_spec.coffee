@@ -4,6 +4,7 @@ jest.dontMock '../procrust'
 class MyClass
 
 describe 'Match', ->
+
   describe 'by type', ->
     fn = Match -> [
       When Number, -> 'number'
@@ -20,7 +21,7 @@ describe 'Match', ->
     it 'shall throw error if no match and no second arg', ->
       expect(-> fn null).toThrow()
 
-  describe 'by value', ->
+  describe 'by exact value', ->
     fn = Match -> [
       When 3, -> 'is a 3'
       When 5, -> 'is a 5'
@@ -43,12 +44,12 @@ describe 'Match', ->
     it 'shall match nested struct', ->
       expect(fn {x: {y: [1,2]}}).toEqual('is a nested struct')
 
-  describe 'destruction', ->
+  describe 'with destruction', ->
     fnSimple = Match -> [
       When @a, -> @a
     ]
 
-    it 'shall destruct simple value', ->
+    it 'shall destruct primitive value', ->
       expect(fnSimple 3).toEqual(3)
       expect(fnSimple 'test').toEqual('test')
 
@@ -114,7 +115,6 @@ describe 'Match', ->
         ['two', 'three']
       ])
 
-
     it 'shall destruct whole structs and struct parts', ->
       fn = Match -> [When {a: @a = {b: @b}}, -> [@a, @b]]
       expect(fn {a: {b: 3, c: 4}}).toEqual([{b:3,c:4},3])
@@ -145,19 +145,20 @@ describe 'Match', ->
       expect(fnClass new MyClass2(4, 11)).toEqual("class2")
 
 
-  it 'shall check identity if same variable met twice', ->
-    fn = Match -> [
-      When [@x, @x, @x], -> 'ok'
-    ]
-    expect(fn [3,3,3]).toEqual('ok')
-    expect(->fn [3,3,4]).toThrow()
+  describe 'of identical variables', ->
+    it 'shall check identity if same variable met twice', ->
+      fn = Match -> [
+        When [@x, @x, @x], -> 'ok'
+      ]
+      expect(fn [3,3,3]).toEqual('ok')
+      expect(->fn [3,3,4]).toThrow()
 
-  it "shall not check identity for wildcard variable", ->
-    fn = Match -> [
-      When [@_, @_, @_], -> "ok"
-    ]
-    expect(fn [3,3,3]).toEqual('ok')
-    expect(fn [1,2,3]).toEqual('ok')
+    it "shall not check identity for wildcard variable", ->
+      fn = Match -> [
+        When [@_, @_, @_], -> "ok"
+      ]
+      expect(fn [3,3,3]).toEqual('ok')
+      expect(fn [1,2,3]).toEqual('ok')
 
   it 'shall process several calls', ->
     fn = Match -> [
@@ -182,17 +183,28 @@ describe 'Match', ->
     expect(res).toEqual('good')
 
 
-  it 'with guards', ->
+  describe 'with guards', ->
+    it 'shall work using Having syntax', ->
 
-    fn = Match -> [
-      When @x, Having(-> @x == 1) -> '1'
-      When @x, Having(-> @x == 2) -> '2'
-      When @x, -> 'other'
-    ]
+      fn = Match -> [
+        When @x, Having(-> @x == 1) -> '1'
+        When @x, Having(-> @x == 2) -> '2'
+        When @x, -> 'other'
+      ]
 
-    expect(fn 1).toEqual('1')
-    expect(fn 2).toEqual('2')
-    expect(fn 3).toEqual('other')
+      expect(fn 1).toEqual('1')
+      expect(fn 2).toEqual('2')
+      expect(fn 3).toEqual('other')
+
+    it 'shall work using array of fns', ->
+      fn = Match -> [
+        When @x, [(-> @x > 1), (-> @x > 10), -> "1 " + @x]
+        When @x, [(-> @x > 1), -> "2 " + @x]
+        When @x, [-> "3 " + @x]
+      ]
+      expect(fn 11).toEqual("1 11")
+      expect(fn 10).toEqual("2 10")
+      expect(fn 1).toEqual("3 1")
 
 
 describe 'functionMatch', ->

@@ -1,6 +1,7 @@
-function createRenderer(firstArgName, secondArgName) {
+function createRenderer(firstArgName, secondArgName, guardArgName) {
 
   var padStep = "  ";
+  var resVarName = "res";
 
   return function createFn(grouped, options) {
     options = options || {};
@@ -104,7 +105,10 @@ function createRenderer(firstArgName, secondArgName) {
           if (!cmd.result.hasOwnProperty(ref)) continue;
           result.push("'" + ref + "': " + varname(cmd.result[ref]));
         }
-        return "if (" + secondArgName + "[" + cmd.done + "]({" + result.join(', ') + "})) return true;"
+        return [
+          resVarName + " = {" + result.join(', ') + "};",
+          "if (" + guardArgName + "[" + cmd.done + "] && " + guardArgName + "[" + cmd.done + "](" + resVarName + ")) return {ok: " + secondArgName + "[" + cmd.done + "](" + resVarName + ")};"
+          ]
       }
       else if (cmd.tail) {
         return assignTemp(cmd.newvar, "tail") + " = " + varname(cmd) + ".slice(" + cmd.tail + ");";
@@ -123,11 +127,9 @@ function createRenderer(firstArgName, secondArgName) {
     }
 
     var code = renderExpressions("return false", padStep, grouped.cmds);
-    if (!temp.isEmpty()) {
-      code.unshift(padStep + "var " + temp.all.join(", ") + ";")
-    }
+    code.unshift(padStep + "var " + [resVarName].concat(temp.all).join(", ") + ";");
     try {
-      var fn = new Function(firstArgName, secondArgName, code.join("\n"));
+      var fn = new Function(firstArgName, secondArgName, guardArgName, code.join("\n"));
       if (options.debug.functions) {
         console.log(fn.toString());
       }

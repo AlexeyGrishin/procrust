@@ -1,5 +1,11 @@
 function createRegrouper() {
 
+  function forkFlow(idx) {
+    return function(fork) {
+      return {if: fork.cmd, then: flow(fork.patterns, idx)};
+    }
+  }
+
   function flow(patterns, idx) {
     if (patterns.length == 1) return patterns[0].cmds.slice(idx);
     var cmds = [], i;
@@ -24,14 +30,7 @@ function createRegrouper() {
         cmds.push(forks[0].cmd);
       }
       else {
-        cmds.push({
-          fork: forks.map(function (f) {
-            return {
-              if: f.cmd,
-              then: flow(f.patterns, idx + 1)
-            }
-          })
-        });
+        cmds.push({fork: forks.map(forkFlow(idx + 1))});
         break;
       }
       idx++;

@@ -82,8 +82,7 @@ function getAll(regexp, text) {
 
 
 function Match(whensFactories) {
-  var value, patternsAndFns, patterns, whenFns, compiled;
-  var resultsHolder = {result: null};
+  var value, patternsAndFns, patterns, whenFns, guards, compiled;
   if (arguments.length == 2) {
     if (typeof arguments[1] == 'function' && typeof arguments[0] != 'function') {
       value = arguments[0];
@@ -93,8 +92,9 @@ function Match(whensFactories) {
   getAll(/this\.([a-zA-Z0-9_]+)/gi, whensFactories.toString()).map(createPlaceholder);
   context.onNew();
   patternsAndFns = whensFactories.call(context.kvars);
-  patterns = patternsAndFns.map(function(p) { return p.pattern;});
-  whenFns = patternsAndFns.map(function(p) { return p.produceWhenFn(resultsHolder);});
+  patterns = _puck("pattern", patternsAndFns);
+  guards = _puck("guard", patternsAndFns);
+  whenFns = _puck("execute", patternsAndFns);
   try {
     compiled = doCompilePatterns(patterns, context.metvars);
   }
@@ -107,8 +107,8 @@ function Match(whensFactories) {
   return match;
 
   function match(value) {
-    var ok = compiled(value, whenFns);
-    if (ok) return resultsHolder.result;
+    var res = compiled(value, whenFns, guards);
+    if (res && res.ok) return res.ok;
     throw new Error("Value is not matched by any condition: '" + value + "'");
   }
 }
@@ -150,28 +150,22 @@ function When(pattern, execute) {
     execute = args.pop();
     pattern = args;
   }
-  return {pattern: pattern, produceWhenFn: function produceWhenFn(resultHolder) {
-    return function(ctx) {
-      var rejected = false;
-      var result = execute.call(ctx, function rejector() {
-        rejected = true;
-      });
-      if (rejected) return false;
-      resultHolder.result = result;
-      return true;
+  var guards = [];
+  var guardSucceeded = function() { return true;};
+  if (Array.isArray(execute)) {
+    guards = execute;
+    execute = guards.pop();
+    guardSucceeded = function(ctx) {
+      return !guards.some(function(g) { return !g.call(ctx); })
     }
-  }};
+  }
+  return {pattern: pattern, guard: guardSucceeded, execute: function(ctx) { return execute.call(ctx); }};
 
 }
 
 function Having(guardFn) {
   return function(execute) {
-    return function(rejector) {
-      if (!guardFn.call(this)) {
-        return rejector();
-      }
-      return execute.call(this);
-    }
+    return [guardFn, execute]
   }
 }
 
@@ -199,7 +193,7 @@ function ObjectOf() {
     return new ObjectMatcher(arguments[0], arguments[1]);
   } else {
     //this is normally created object, ignore
-    return null;
+    return false;
   }
 }
 

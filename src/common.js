@@ -7,6 +7,10 @@ function _notEmpty(item) {
   return item != null;
 }
 
+function _puck(name, ar) {
+  return ar.map(function(item) { return item[name];});
+}
+
 function _flat(array) {
   for (var i = array.length-1; i >=0; i--) {
     if (Array.isArray(array[i])) {
