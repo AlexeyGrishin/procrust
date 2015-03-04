@@ -448,6 +448,11 @@
         }
       };
       
+      function isPrimitive(obj) {
+        var type = typeof obj;
+        return type === "string" || type === "number" || type === "boolean";
+      }
+      
       function createPlaceholder(name) {
         var placeholder = name === "_" ? _ : new Placeholder(name);
       
@@ -459,15 +464,15 @@
           set: function(vl) {
             if (vl === null) return;
             if (vl.__key) throw new Error("Cannot assign pattern variables to each other!");
-            if (typeof vl == "object") {
+            if (isPrimitive(vl)) {
+              throw new Error("Cannot assign pattern variable to constant num (well, why do you need it for?)");
+            }
+            else {
               Object.defineProperty(vl, "__reference", {
                 enumerable: false,
                 writable: false,
                 value: placeholder.meet()
               });
-            }
-            else if (vl != null) {
-              throw new Error("Cannot assign pattern variable to constant num (well, why do you need it for?)");
             }
           }
         });

@@ -46,7 +46,8 @@ describe 'Match', ->
 
   describe 'with destruction', ->
     fnSimple = Match -> [
-      When @a, -> @a
+      When @a = Number, -> @a
+      When @a = String, -> @a
     ]
 
     it 'shall destruct primitive value', ->
