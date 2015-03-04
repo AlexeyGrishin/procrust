@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Events example</title>
+    <script src="extras/coffee-script.js"></script>
+    <script src="../procrust.js"></script>
+    <style></style>
+</head>
+<body>
+    <pre id="log"></pre>
+    <script type="text/coffeescript">
+        {Match, When} = procrust
+        log = (text) -> document.getElementById("log").innerHTML = text
+        char = (txt) -> txt.charCodeAt(0)
+
+        onKey = Match -> [
+            When type: "keydown", which: char('M'), ctrlKey: true,  -> log("ctrl+m down")
+            When type: "keydown", which: @which,                    -> log("some key down(#{String.fromCharCode(@which)}). try ctrl+m!")
+            When type: "keyup", which: char('X'), ctrlKey: true,    -> log("ctrl+x up")
+            When type: "keyup", which: @which,                      -> log("some key up(#{String.fromCharCode(@which)}). try ctrl+x!")
+            When @e,                                                -> log("not sure what was it..."); console.log(@e)
+        ]
+        window.addEventListener "keydown", onKey
+        window.addEventListener "keyup", onKey
+        log "try to press some key. try ctrl+x and ctrl+m for example"
+    </script>
+</body>
+</html>

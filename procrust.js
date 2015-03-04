@@ -301,6 +301,16 @@
               return null;
             }
         
+            function renderConditionForFork(cmd) {
+              var cond = renderCondition(cmd);
+              if (cond == null) {
+                if (cmd.item != null || cmd.prop != null) {
+                  cond = "(" + renderAssign(cmd) + ") != null";
+                }
+              }
+              return cond;
+            }
+        
             function renderDebug(condition) {
               if (options.debug.matching && condition != null) {
                 return ["if (!(" + condition + ")) {console.log('[PROKRUST] ' + " + JSON.stringify(condition) + " + ' -> failed' );}"]
@@ -309,7 +319,7 @@
             }
         
             function renderFork(pad, fork) {
-              var cond = renderCondition(fork.if);
+              var cond = renderConditionForFork(fork.if);
               var ifExpr = cond == null ? "" : "if (" + cond + ") ";
               return renderDebug(cond)
                 .concat([ifExpr + "do {"])
@@ -325,17 +335,26 @@
               return renderDebug(cond) + "if (!(" + cond + ")) " + ret + ";";
             }
         
+            function renderAssign(cmd) {
+              if (cmd.prop != null) {
+                //TODO: assign temp only if variable used more than once
+                return assignTemp(cmd.newvar, cmd.prop) + " = " + varname(cmd) + "." + cmd.prop;
+              }
+              else if (cmd.item != null) {
+                return assignTemp(cmd.newvar, "item" + cmd.item) + " = " + varname(cmd) + "[" + cmd.item + "]";
+              }
+              throw new Error("Cannot render command as assignment: " + cmd);
+        
+            }
+        
             function renderExpression(ret, pad, cmd) {
               var cond = renderCondition(cmd);
               if (cond) {
                 return renderConditionCheck(cond, ret);
               }
-              else if (cmd.prop != null) {
+              else if (cmd.prop != null || cmd.item != null) {
+                return renderAssign(cmd) + ";";
                 //TODO: assign temp only if variable used more than once
-                return assignTemp(cmd.newvar, cmd.prop) + " = " + varname(cmd) + "." + cmd.prop + ";";
-              }
-              else if (cmd.item != null) {
-                return assignTemp(cmd.newvar, "item" + cmd.item) + " = " + varname(cmd) + "[" + cmd.item + "];";
               }
               else if (cmd.done != null) {
                 var result = [];
@@ -631,4 +650,4 @@
     matching: false
   };
 
-})(typeof exports === 'undefined'? this['pattern-matching']={}: exports);
+})(typeof exports === 'undefined'? this['procrust']={}: exports);

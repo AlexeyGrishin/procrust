@@ -16,4 +16,4 @@
     matching: false
   };
 
-})(typeof exports === 'undefined'? this['pattern-matching']={}: exports);
+})(typeof exports === 'undefined'? this['procrust']={}: exports);
