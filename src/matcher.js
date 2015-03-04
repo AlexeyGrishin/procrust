@@ -108,7 +108,7 @@ function Match(whensFactories) {
 
   function match(value) {
     var res = compiled(value, whenFns, guards);
-    if (res && res.ok) return res.ok;
+    if (res) return res.ok;
     throw new Error("Value is not matched by any condition: '" + value + "'");
   }
 }

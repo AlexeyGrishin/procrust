@@ -174,6 +174,18 @@ describe 'Match', ->
     ]
     expect(res).toEqual('good')
 
+  it 'shall correctly process different return values', ->
+    fn = Match -> [
+      When 1, -> false
+      When 2, -> 0
+      When 3, -> null
+      When 4, -> undefined
+    ]
+    expect(fn 1).toBe(false)
+    expect(fn 2).toBe(0)
+    expect(fn 3).toBe(null)
+    expect(fn 4).toBe(undefined)
+
   it 'shall work nested', ->
     res = Match {x: 2}, -> [
       When {x: @x}, -> Match @x, -> [
