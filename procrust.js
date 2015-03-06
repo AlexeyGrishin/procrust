@@ -467,11 +467,20 @@
               throw new Error("Cannot assign pattern variable to constant num (well, why do you need it for?)");
             }
             else {
-              Object.defineProperty(vl, "__reference", {
-                enumerable: false,
-                writable: false,
-                value: placeholder.meet()
-              });
+              if (!vl.hasOwnProperty("__reference")) {
+                var allRefs = [];
+                Object.defineProperty(vl, "__reference", {
+                  configurable: false,
+                  enumerable: false,
+                  get: function() {
+                    return allRefs.shift();
+                  },
+                  set: function(vl) {
+                    allRefs.push(vl);
+                  }
+                });
+              }
+              vl.__reference = placeholder.meet();
             }
           }
         });
@@ -525,7 +534,8 @@
         return compilePattern(patterns, {
           getResultRef: function(o) {
             if (o === _) return null;
-            if (o.__reference) return o.__reference.__key;
+            var lastRef = o.__reference;
+            if (lastRef) return lastRef.__key;
             if (o.__key) return o.__key;
           },
           isResultVar: function(o) {return o instanceof Placeholder;},

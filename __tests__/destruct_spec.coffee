@@ -54,6 +54,13 @@ describe 'Match', ->
       expect(fnSimple 3).toEqual(3)
       expect(fnSimple 'test').toEqual('test')
 
+    it 'shall destruct variables by type even several vars refer to same type', ->
+      fnDuplicateCtors = Match -> [
+        When @a = Number, -> "a" + @a
+        When @b = Number, -> "b" + @b
+      ]
+      expect(fnDuplicateCtors 10).toEqual("a10")
+
     fnArraySimple = Match -> [
       When @a = [1,2], -> @a
     ]
@@ -125,8 +132,13 @@ describe 'Match', ->
       ])
 
     it 'shall destruct whole structs and struct parts', ->
-      fn = Match -> [When {a: @a = {b: @b}}, -> [@a, @b]]
+      fn = Match -> [
+        When {a: @a = {_non_exist: @_}}, -> throw "failed"
+        When {a: @a = {b: @b}}, -> [@a, @b]
+      ]
       expect(fn {a: {b: 3, c: 4}}).toEqual([{b:3,c:4},3])
+
+
 
     class MyClass1
       constructor: (@x, @y) ->
