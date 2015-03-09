@@ -1,113 +1,63 @@
-function createParser(firstArgName) {
-
-  function _key(key) { return {key: key}}
-  function _fakekey(key) { return {key: key, fake: true}}
-
-  var _value = _create(['var', _key('value')]);
-  var _typeof = _create(['var', _key('typeof')]);
-  var _array = _create(['var', _fakekey('array')]);
-  var _prop = _create(['var', _key('prop'), 'newvar']);
-  var _item = _create(['var', _key('item'), 'newvar']);
-  var _tail = _create(['var', _key('tail'), 'newvar']);
-  var _constructor = _create(['var', _key('ctor')]);
-  var _ref = _create(['var', _key('ref')]);
-  var _length = _create(['var', _key('length'), 'compare'], function(ex) {
-    return this.length === ex.length && this.compare === ex.compare;
-  });
-  var _done = _create([_key('done'), 'result']);
-  var _any = _create(['var', _fakekey('any')]);
+function createParser(firstArgName, plugins) {
 
 
   return function parse(pattern, idx, helper) {
     var cmds = [];
-    var refs = {};
-    function addCmd(c) { cmds.push(c); }
+    var refs = [];
+
     function addRef(varname, ref) {
+      if (!ref) return;
       if (refs[ref]) {
-        addCmd(_ref(varname, refs[ref]));
+        cmds.push(new Command("ref", varname, refs[ref]));
       }
       refs[ref] = varname;
     }
 
-    function parse(varname, part, cannotBeNull) {
-      var tv, i, key;
-      var ref = helper.getResultRef(part);
-      if (ref) {
-        addRef(varname, ref);
-      }
-      if (helper.isWildcard(part) || helper.isResultVar(part)) {
-        if (!cannotBeNull) {
-          addCmd(_any(varname));
-        }
-        return;
-      }
+    function parse(varname, part) {
+      var defn = {};
+      defn.varname = varname;
+      defn.type = getTypeName(part);
+      defn.reference = helper.getResultRef(part);
+      addRef(varname, defn.reference);
 
+      function addCommand(command, value, suffix) {
+        cmds.push(new Command(command, varname, value, suffix ? varname + suffix : undefined));
+      }
+      function next(part, suffix) {
+        var newname = varname + (suffix || "");
+        return parse(newname, part);
+      }
+      if (plugins.parse(addCommand, part, next, defn) === false) {
+        throw new Error("Do not know how to parse: " + JSON.stringify(part) );
+      }
+    }
+    parse(firstArgName, pattern);
+    cmds.push({command: "done", value: refs, index: idx, eq: function(c) {
+      return this.command === c.command && this.index === c.index;
+    }});
+    return cmds;
+
+    function getTypeName(part) {
+      if (typeof part == "undefined" || part == null) {
+        return "undefined";
+      }
+      if (helper.isResultVar(part)) {
+        return helper.isWildcard(part) ? "wildcard": "var";
+      }
       if (Array.isArray(part)) {
-        addCmd(_array(varname));
-        var splitted = helper.resolveTail(part);
-        var enumerated = splitted[0];
-        var tail = splitted[1];
-        addCmd(_length(varname, enumerated.length, tail ? '>=' : '=='));
-        for (i = 0; i < enumerated.length; i++) {
-          tv = varname + "[" + i + "]";
-          addCmd(_item(varname, i, tv));
-          parse(tv, enumerated[i]);
-        }
-        if (tail) {
-          tv = varname + ".slice(" + enumerated.length + ")";
-          addCmd(_tail(varname, enumerated.length, tv));
-          parse(tv, tail, true);
-        }
+        return "array";
       }
-      else if (typeof part === 'object') {
-        addCmd(_typeof(varname, 'object'));
-        if (part instanceof ObjectMatcher) {
-          addCmd(_constructor(varname, part.klass));
-          part = part.props;
-        }
-        var keys = Object.keys(part);
-        keys.sort();
-        for (i = 0; i < keys.length; i++) {
-          key = keys[i];
-          tv = varname + "." + key;
-          addCmd(_prop(varname, key, tv));
-          parse(tv, part[key]);
-        }
+      if (typeof part == "object") {
+        return "object";
       }
-      else if (typeof part === 'function') {
-        addCmd(_constructor(varname, part.name));
+      if (typeof part == "function") {
+        return "function";
       }
       else {
-        addCmd(_value(varname, part));
+        return "primitive";
       }
     }
 
-    parse(firstArgName, pattern);
-    addCmd(_done(idx, refs));
-    return _parsedPattern(cmds);
   };
 
-
-  function _eq(prop) {
-    return function(ex) {
-      return ex.var === this.var && this[prop] === ex[prop];
-    }
-  }
-
-  function _create(args, customeq) {
-    return function() {
-      var o = {};
-      for (var i = 0; i < args.length; i++) {
-        var k = args[i], value = arguments[i];
-        if (k.key) {
-          if (k.fake) value = true;
-          k = k.key;
-          o.eq = _eq(k)
-        }
-        o[k] = value;
-      }
-      if (customeq) o.eq = customeq;
-      return o;
-    }
-  }
 }
