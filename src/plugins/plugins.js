@@ -49,7 +49,7 @@ function skipFalse(res) { return res === false;}
 
 
 Plugins.prototype.parse = function doParse() {
-  var defn = arguments[3];
+  var defn = arguments[2];
   var methods = ["parse_" + defn.type, "parse"];
   return firstNonFalse(this.plugins, methods, arguments, skipFalse);
 };

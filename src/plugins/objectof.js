@@ -6,10 +6,10 @@ function ObjectMatcher(klass, props) {
 function pluginObjectOf() {
 
   return {
-    parse: function(addCmd, part, yieldNext) {
+    parse: function(part, f) {
       if (part instanceof ObjectMatcher) {
-        yieldNext(part.klass);
-        yieldNext(part.props);
+        f.yieldAs(part.klass);
+        f.yieldAs(part.props);
         return true;
       }
       return false;

@@ -1,12 +1,12 @@
 function pluginReference() {
 
   return {
-    parse_var: function(addCmd, part, yieldNext) {
-      addCmd("any")
+    parse_var: function(part, f) {
+      f.addCheck("any")
     },
 
-    parse_wildcard: function(addCmd, part, yieldNext) {
-      addCmd("any")
+    parse_wildcard: function(part, f) {
+      f.addCheck("any")
     },
 
     render_any: function() {

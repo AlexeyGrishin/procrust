@@ -1,8 +1,8 @@
 function pluginPrimitive() {
 
   return {
-    parse_primitive: function(addCmd, part, yieldNext) {
-      addCmd("value", part);
+    parse_primitive: function(part, f) {
+      f.addCheck("value", part);
     },
 
     render_value: function(command, varname, createVar) {

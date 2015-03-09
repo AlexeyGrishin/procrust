@@ -51,6 +51,15 @@
     
       function createParser(firstArgName, plugins) {
       
+        function Done(index, refs) {
+          this.command = "done";
+          this.value = refs;
+          this.index = index;
+        }
+      
+        Done.prototype.eq = function(ad) {
+          return ad.command == this.command && ad.index == this.index;
+        };
       
         return function parse(pattern, idx, helper) {
           var cmds = [];
@@ -63,6 +72,7 @@
             }
             refs[ref] = varname;
           }
+          var vidx = 1;
       
           function parse(varname, part) {
             var defn = {};
@@ -71,21 +81,29 @@
             defn.reference = helper.getResultRef(part);
             addRef(varname, defn.reference);
       
-            function addCommand(command, value, suffix) {
-              cmds.push(new Command(command, varname, value, suffix ? varname + suffix : undefined));
-            }
-            function next(part, suffix) {
-              var newname = varname + (suffix || "");
-              return parse(newname, part);
-            }
-            if (plugins.parse(addCommand, part, next, defn) === false) {
+            var parsingFlow = {
+              addCheck: function(command, value) {
+                cmds.push(new Command(command, varname, value));
+              },
+              addSubitem: function(command, value, patternSubitem) {
+                var newname = "$" + vidx++;
+                cmds.push(new Command(command, varname, value, newname));
+                parse(newname, patternSubitem);
+              },
+              yieldSubitem: function(command, value, patternSubitem) {
+                this.addSubitem(command, value, patternSubitem);
+              },
+              yieldAs: function(pattern) {
+                parse(varname, pattern);
+              }
+            };
+      
+            if (plugins.parse(part, parsingFlow, defn) === false) {
               throw new Error("Do not know how to parse: " + JSON.stringify(part) );
             }
           }
           parse(firstArgName, pattern);
-          cmds.push({command: "done", value: refs, index: idx, eq: function(c) {
-            return this.command === c.command && this.index === c.index;
-          }});
+          cmds.push(new Done(idx, refs));
           return cmds;
       
           function getTypeName(part) {
@@ -110,6 +128,8 @@
           }
       
         };
+      
+      
       
       }
         function createRegrouper() {
@@ -303,7 +323,7 @@
   
   
   Plugins.prototype.parse = function doParse() {
-    var defn = arguments[3];
+    var defn = arguments[2];
     var methods = ["parse_" + defn.type, "parse"];
     return firstNonFalse(this.plugins, methods, arguments, skipFalse);
   };
@@ -330,17 +350,15 @@
           });
         },
     
-        parse_array: function(addCmd, part, yieldNext) {
+        parse_array: function(part, f) {
           if (part.___ignore_length) {
             delete part.___ignore_length;
           }
           else {
-            addCmd("lengthEq", part.length);
+            f.addCheck("lengthEq", part.length);
           }
           for (var i = 0; i < part.length; i++) {
-            var suffix = "[" + i + "]";
-            addCmd("item", i, suffix);
-            yieldNext(part[i], suffix);
+            f.yieldSubitem("item", i, part[i]);
           }
         },
     
@@ -396,8 +414,8 @@
         function pluginConstructor() {
         
           return {
-            parse_function: function(addCmd, part, yieldNext) {
-              addCmd("constructor", part.name);
+            parse_function: function(part, f) {
+              f.addCheck("constructor", part.name);
             },
         
             render_constructor: function(command, varname) {
@@ -436,7 +454,7 @@
                   bitRegistry: "require",
                   ignoreLengthFor: "require",
             
-                  parse_array: function(addCmd, part, yieldNext) {
+                  parse_array: function(part, f) {
                     if (part.length == 0) return false;
                     var last = part[part.length - 1];
                     var beforeTail, tail = null;
@@ -455,12 +473,10 @@
                       return false;
                     }
             
-                    addCmd("lengthGe", beforeTail.length);
+                    f.addCheck("lengthGe", beforeTail.length);
                     this.ignoreLengthFor(beforeTail);
-                    yieldNext(beforeTail);
-                    var nname = ".slice(" + beforeTail.length + ")";
-                    addCmd("tail", beforeTail.length, nname);
-                    yieldNext(tail, nname);
+                    f.yieldAs(beforeTail);
+                    f.yieldSubitem("tail", beforeTail.length, tail);
                   },
             
                   render_lengthGe: function(command, varname) {
@@ -478,13 +494,11 @@
               function pluginObject() {
               
                 return {
-                  parse_object: function(addCmd, part, yieldNext) {
+                  parse_object: function(part, f) {
                     var keys = Object.keys(part);
                     keys.sort();
                     for (var i = 0; i < keys.length; i++) {
-                      var nname = "." + keys[i];
-                      addCmd("prop", keys[i], nname);
-                      yieldNext(part[keys[i]], nname);
+                      f.yieldSubitem("prop", keys[i], part[keys[i]]);
                     }
                   },
               
@@ -501,10 +515,10 @@
                 function pluginObjectOf() {
                 
                   return {
-                    parse: function(addCmd, part, yieldNext) {
+                    parse: function(part, f) {
                       if (part instanceof ObjectMatcher) {
-                        yieldNext(part.klass);
-                        yieldNext(part.props);
+                        f.yieldAs(part.klass);
+                        f.yieldAs(part.props);
                         return true;
                       }
                       return false;
@@ -576,7 +590,7 @@
   
   
   Plugins.prototype.parse = function doParse() {
-    var defn = arguments[3];
+    var defn = arguments[2];
     var methods = ["parse_" + defn.type, "parse"];
     return firstNonFalse(this.plugins, methods, arguments, skipFalse);
   };
@@ -595,8 +609,8 @@
     function pluginPrimitive() {
     
       return {
-        parse_primitive: function(addCmd, part, yieldNext) {
-          addCmd("value", part);
+        parse_primitive: function(part, f) {
+          f.addCheck("value", part);
         },
     
         render_value: function(command, varname, createVar) {
@@ -607,12 +621,12 @@
       function pluginReference() {
       
         return {
-          parse_var: function(addCmd, part, yieldNext) {
-            addCmd("any")
+          parse_var: function(part, f) {
+            f.addCheck("any")
           },
       
-          parse_wildcard: function(addCmd, part, yieldNext) {
-            addCmd("any")
+          parse_wildcard: function(part, f) {
+            f.addCheck("any")
           },
       
           render_any: function() {
