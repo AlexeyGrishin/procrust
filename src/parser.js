@@ -38,7 +38,7 @@ function createParser(firstArgName, plugins) {
           var newname = "$" + vidx++;
           cmds.push(new Command(command, varname, value, newname));
           refDelegated = delegateRef;
-          parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
+          if (patternSubitem) parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
         },
         yieldSubitem: function(command, value, patternSubitem, delegateRef) {
           this.addSubitem(command, value, patternSubitem, delegateRef);
