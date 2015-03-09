@@ -61,7 +61,7 @@ function createRenderer(firstArgName, secondArgName, guardArgName, plugins) {
 
       function createVar(prefix) {
         var newvar;
-        temp.all.push(temp.vars[command.newvar] = newvar = prefix + "$" + temp.next);
+        temp.all.push(temp.vars[command.newvar] = newvar = (prefix ? prefix : "var") + "$" + temp.next);
         temp.next++;
         return newvar;
       }

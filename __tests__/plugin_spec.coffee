@@ -15,7 +15,7 @@ myPlugin = ->
 
   parse_array: (part, f) ->
     f.addCheck("mycheck", "called_array")
-    if (part.length > 0) then f.yieldSubitem("item", 0, part[0])
+    if (part.length > 0) then f.yieldSubitem("item", 0, part[0], true)
 
   render_mycheck: (cmd, varname) ->
     return { noIf: "this.ctx.#{cmd.value} = true" }
@@ -41,6 +41,12 @@ describe "my own plugin", ->
     ]
     fn([])
     expect(ctx.called_array).toBeTruthy()
+
+  it "shall pass reference to subitem", ->
+    fn = Match -> [
+      When @x = [1,2,3], -> @x
+    ]
+    expect(fn [1,2,3]).toEqual(1)
 
   it "shall process only one item of array", ->
     fn = Match -> [
