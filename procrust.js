@@ -55,6 +55,7 @@
         return function parse(pattern, idx, helper) {
           var cmds = [];
           var refs = [];
+      
           function addRef(varname, ref) {
             if (!ref) return;
             if (refs[ref]) {
@@ -66,26 +67,10 @@
           function parse(varname, part) {
             var defn = {};
             defn.varname = varname;
+            defn.type = getTypeName(part);
             defn.reference = helper.getResultRef(part);
             addRef(varname, defn.reference);
-            if (typeof part == "undefined" || part == null) {
-              defn.type = "undefined";
-            }
-            else if (helper.isResultVar(part)) {
-              defn.type = helper.isWildcard(part) ? "wildcard": "var";
-            }
-            else if (Array.isArray(part)) {
-              defn.type = "array";
-            }
-            else if (typeof part == "object") {
-              defn.type = "object";
-            }
-            else if (typeof part == "function") {
-              defn.type = "function";
-            }
-            else {
-              defn.type = "primitive";
-            }
+      
             function addCommand(command, value, suffix) {
               cmds.push(new Command(command, varname, value, suffix ? varname + suffix : undefined));
             }
@@ -102,7 +87,30 @@
             return this.command === c.command && this.index === c.index;
           }});
           return cmds;
-        }
+      
+          function getTypeName(part) {
+            if (typeof part == "undefined" || part == null) {
+              return "undefined";
+            }
+            if (helper.isResultVar(part)) {
+              return helper.isWildcard(part) ? "wildcard": "var";
+            }
+            if (Array.isArray(part)) {
+              return "array";
+            }
+            if (typeof part == "object") {
+              return "object";
+            }
+            if (typeof part == "function") {
+              return "function";
+            }
+            else {
+              return "primitive";
+            }
+          }
+      
+        };
+      
       }
         function createRegrouper() {
         
@@ -220,8 +228,6 @@
             function getVar(name) {
               return temp.vars[name];
             }
-      
-      
           }
       
           var code = renderExpressions("return false", padStep, commands);
@@ -298,7 +304,7 @@
   
   Plugins.prototype.parse = function doParse() {
     var defn = arguments[3];
-    var methods = ["parse_" + defn.type, "parse"], res;
+    var methods = ["parse_" + defn.type, "parse"];
     return firstNonFalse(this.plugins, methods, arguments, skipFalse);
   };
   
@@ -571,7 +577,7 @@
   
   Plugins.prototype.parse = function doParse() {
     var defn = arguments[3];
-    var methods = ["parse_" + defn.type, "parse"], res;
+    var methods = ["parse_" + defn.type, "parse"];
     return firstNonFalse(this.plugins, methods, arguments, skipFalse);
   };
   
@@ -590,7 +596,7 @@
     
       return {
         parse_primitive: function(addCmd, part, yieldNext) {
-          addCmd("value", part);//varname by default
+          addCmd("value", part);
         },
     
         render_value: function(command, varname, createVar) {

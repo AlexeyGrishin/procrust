@@ -36,26 +36,28 @@ function createParser(firstArgName, plugins) {
       return this.command === c.command && this.index === c.index;
     }});
     return cmds;
+
+    function getTypeName(part) {
+      if (typeof part == "undefined" || part == null) {
+        return "undefined";
+      }
+      if (helper.isResultVar(part)) {
+        return helper.isWildcard(part) ? "wildcard": "var";
+      }
+      if (Array.isArray(part)) {
+        return "array";
+      }
+      if (typeof part == "object") {
+        return "object";
+      }
+      if (typeof part == "function") {
+        return "function";
+      }
+      else {
+        return "primitive";
+      }
+    }
+
   };
 
-  function getTypeName(part) {
-    if (typeof part == "undefined" || part == null) {
-      return "undefined";
-    }
-    if (helper.isResultVar(part)) {
-      return helper.isWildcard(part) ? "wildcard": "var";
-    }
-    if (Array.isArray(part)) {
-      return "array";
-    }
-    if (typeof part == "object") {
-      return "object";
-    }
-    if (typeof part == "function") {
-      return "function";
-    }
-    else {
-      return "primitive";
-    }
-  }
 }
