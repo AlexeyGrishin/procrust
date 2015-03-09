@@ -89,7 +89,14 @@
                 var newname = "$" + vidx++;
                 cmds.push(new Command(command, varname, value, newname));
                 refDelegated = delegateRef;
-                parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
+                if (patternSubitem === true) {
+                  //subitem omited, no parse, but delegate reference if needed
+                  refDelegated = true;
+                  addRef(newname, defn.reference);
+                }
+                else if (patternSubitem) {
+                  parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
+                }
               },
               yieldSubitem: function(command, value, patternSubitem, delegateRef) {
                 this.addSubitem(command, value, patternSubitem, delegateRef);
