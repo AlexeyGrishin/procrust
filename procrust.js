@@ -74,24 +74,25 @@
           }
           var vidx = 1;
       
-          function parse(varname, part) {
+          function parse(varname, part, delegatedReference) {
             var defn = {};
             defn.varname = varname;
             defn.type = getTypeName(part);
-            defn.reference = helper.getResultRef(part);
-            addRef(varname, defn.reference);
+            defn.reference = helper.getResultRef(part) || delegatedReference;//TODO: shall process both references, but it shall be very rare case
+            var refDelegated = false;
       
             var parsingFlow = {
               addCheck: function(command, value) {
                 cmds.push(new Command(command, varname, value));
               },
-              addSubitem: function(command, value, patternSubitem) {
+              addSubitem: function(command, value, patternSubitem, delegateRef) {
                 var newname = "$" + vidx++;
                 cmds.push(new Command(command, varname, value, newname));
-                parse(newname, patternSubitem);
+                refDelegated = delegateRef;
+                parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
               },
-              yieldSubitem: function(command, value, patternSubitem) {
-                this.addSubitem(command, value, patternSubitem);
+              yieldSubitem: function(command, value, patternSubitem, delegateRef) {
+                this.addSubitem(command, value, patternSubitem, delegateRef);
               },
               yieldAs: function(pattern) {
                 parse(varname, pattern);
@@ -101,6 +102,8 @@
             if (plugins.parse(part, parsingFlow, defn) === false) {
               throw new Error("Do not know how to parse: " + JSON.stringify(part) );
             }
+            if (!refDelegated) addRef(varname, defn.reference);
+      
           }
           parse(firstArgName, pattern);
           cmds.push(new Done(idx, refs));
