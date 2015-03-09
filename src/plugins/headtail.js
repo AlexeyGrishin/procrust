@@ -9,7 +9,7 @@ function pluginHeadTail() {
       bitRegistry: "require",
       ignoreLengthFor: "require",
 
-      parse_array: function(addCmd, part, yieldNext) {
+      parse_array: function(part, f) {
         if (part.length == 0) return false;
         var last = part[part.length - 1];
         var beforeTail, tail = null;
@@ -28,12 +28,10 @@ function pluginHeadTail() {
           return false;
         }
 
-        addCmd("lengthGe", beforeTail.length);
+        f.addCheck("lengthGe", beforeTail.length);
         this.ignoreLengthFor(beforeTail);
-        yieldNext(beforeTail);
-        var nname = ".slice(" + beforeTail.length + ")";
-        addCmd("tail", beforeTail.length, nname);
-        yieldNext(tail, nname);
+        f.yieldAs(beforeTail);
+        f.yieldSubitem("tail", beforeTail.length, tail);
       },
 
       render_lengthGe: function(command, varname) {

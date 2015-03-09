@@ -9,17 +9,15 @@ function pluginArray() {
       });
     },
 
-    parse_array: function(addCmd, part, yieldNext) {
+    parse_array: function(part, f) {
       if (part.___ignore_length) {
         delete part.___ignore_length;
       }
       else {
-        addCmd("lengthEq", part.length);
+        f.addCheck("lengthEq", part.length);
       }
       for (var i = 0; i < part.length; i++) {
-        var suffix = "[" + i + "]";
-        addCmd("item", i, suffix);
-        yieldNext(part[i], suffix);
+        f.yieldSubitem("item", i, part[i]);
       }
     },
 
