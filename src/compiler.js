@@ -4,14 +4,14 @@ var compilePattern = (function() {
   var secondArgName = "when";
   var guardArgName = "guard";
 
-  var parse = createParser(firstArgName);
-  var regroup = createRegrouper();
-  var createFn = createRenderer(firstArgName, secondArgName, guardArgName);
-
   //for unit tests
   if (typeof exports !== 'undefined') exports.createRegrouper = createRegrouper;
 
-  return function compilePattern(patterns, helper) {
+  return function compilePattern(patterns, plugins, helper) {
+    var parse = createParser(firstArgName, plugins);
+    var regroup = createRegrouper();
+    var createFn = createRenderer(firstArgName, secondArgName, guardArgName, plugins);
+
     return createFn(regroup(patterns.map(function(pattern, idx) {
       return parse(pattern, idx, helper);
     })), helper.renderOptions);

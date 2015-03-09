@@ -11,12 +11,12 @@ describe 'regrouper', ->
       anotherCmd.name == @name
 
   asFlow = (cmds) ->
-    cmds: cmds.split("").map (c) -> new Cmd(c)
+    cmds.split("").map (c) -> new Cmd(c)
 
   asString = (flow) ->
-    flow.cmds.map((c) ->
+    flow.map((c) ->
       if c.fork
-        c.fork.map((f) -> "[" + asString(cmds: [f.if].concat(f.then)) + "]").join("")
+        c.fork.map((f) -> "[" + asString([f.if].concat(f.then)) + "]").join("")
       else
         c.name
     ).join("")

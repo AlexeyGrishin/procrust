@@ -90,6 +90,18 @@ describe 'Match', ->
       ]
       expect(fnTail [1,2,3]).toEqual([2,3])
 
+    it 'shall destruct head and tail when head is struct', ->
+      fnTail = Match -> [
+        When [{x: 10} | @tail], -> @tail
+      ]
+      expect(fnTail [{x:10},"test"]).toEqual(["test"])
+
+    it 'shall destruct head and tail when head is array', ->
+      fnTail = Match -> [
+        When [["head"] | @tail], -> @tail
+      ]
+      expect(fnTail [["head"],"test"]).toEqual(["test"])
+
     it 'shall destruct head and tail even same variables appear in different branches', ->
       fn = Match -> [
         When [10, @head1 | @tail], -> [@head1, @tail]
