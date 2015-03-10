@@ -110,6 +110,14 @@ describe 'Match', ->
       expect(fn [10, 1, 2]).toEqual([1,[2]])
       expect(fn [20, 1, 2]).toEqual([1,[2]])
 
+
+    it 'shall not destruct string as array', ->
+      fn = Match -> [
+        When [@head | @tail], -> [@head, @tail]
+      ]
+      expect(-> fn "str").toThrow()
+
+
     fnStructSimple = Match -> [
       When @a = {x: 3}, -> @a
     ]
