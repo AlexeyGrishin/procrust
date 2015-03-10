@@ -224,6 +224,9 @@
           }
       
           function renderFork(pad, fork) {
+            if (fork.if.command === "done" && fork.then.length == 0) {
+              return renderExpressions("break", pad, [fork.if]);
+            }
             return ["do {"]
               .concat(renderExpressions("break", pad, [fork.if].concat(fork.then)))
               .concat(["} while(false);"]);
