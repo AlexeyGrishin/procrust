@@ -27,7 +27,7 @@
   
   Command.prototype.eq = function(c) {
     if (c.command != this.command) return false;
-    return c.var == this.var && this.value == c.value;
+    return c.var == this.var && this.value === c.value;
   };
   
     var compilePattern = (function() {
@@ -89,13 +89,12 @@
                 var newname = "$" + vidx++;
                 cmds.push(new Command(command, varname, value, newname));
                 refDelegated = delegateRef;
-                if (patternSubitem === true) {
-                  //subitem omited, no parse, but delegate reference if needed
+                if (typeof patternSubitem != "undefined") {
+                  parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
+                }
+                else if (delegateRef) {
                   refDelegated = true;
                   addRef(newname, defn.reference);
-                }
-                else if (patternSubitem) {
-                  parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
                 }
               },
               yieldSubitem: function(command, value, patternSubitem, delegateRef) {
@@ -225,7 +224,7 @@
       
           function renderFork(pad, fork) {
             if (fork.if.command === "done" && fork.then.length == 0) {
-              return renderExpressions("break", pad, [fork.if]);
+              return renderExpression("break", pad, fork.if);
             }
             return ["do {"]
               .concat(renderExpressions("break", pad, [fork.if].concat(fork.then)))

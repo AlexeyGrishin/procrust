@@ -1,6 +1,7 @@
 {Tail, Match, When, Having, functionMatch} = pm = require('./../procrust')
 
 pm.debug.functions = true
+pm.debug.parsed = true
 
 measure = (repeats, fn) ->
   t1 = new Date().getTime()
@@ -125,6 +126,7 @@ severalPatterns = Match -> [
     }
   }}, -> "ok"
 ]
+
 
 demoStruct = require('./demo.json')
 
