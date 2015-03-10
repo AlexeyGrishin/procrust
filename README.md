@@ -169,6 +169,9 @@ function myPlugin() {
 
 Example of plugin creation could be found here - http://jsfiddle.net/GRaAL/6pouevw6/
 
+# Performance
+
+You may run `performance.coffee` from examples. Or also here is a js-per which compares procrust matching, native coffeescript matching and `pun` library - http://jsperf.com/procrust-js-vs-manual-parsing/2
 
 # Full API
 
