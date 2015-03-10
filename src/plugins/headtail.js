@@ -35,7 +35,7 @@ function pluginHeadTail() {
       },
 
       render_lengthGe: function(command, varname) {
-        return varname + ".length >= " + command.value;
+        return "Array.isArray(" + varname + ") && " + varname + ".length >= " + command.value;
       },
 
       render_tail: function(command, varname, createVar) {

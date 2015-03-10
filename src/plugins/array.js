@@ -22,7 +22,7 @@ function pluginArray() {
     },
 
     render_lengthEq: function(command, varname) {
-      return varname + ".length === " + command.value;
+      return "Array.isArray(" + varname + ") && " + varname + ".length === " + command.value;
     },
 
     render_item: function(command, varname, createVar) {

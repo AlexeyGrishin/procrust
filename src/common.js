@@ -25,6 +25,6 @@ function Command(command, varname, arg, newvar) {
 
 Command.prototype.eq = function(c) {
   if (c.command != this.command) return false;
-  return c.var == this.var && this.value == c.value;
+  return c.var == this.var && this.value === c.value;
 };
 

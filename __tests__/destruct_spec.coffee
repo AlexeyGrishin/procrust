@@ -29,6 +29,11 @@ describe 'Match', ->
       When {x: 3}, -> 'is a struct'
       When [1,2], -> 'is an array'
       When {x: {y: [1,2]}}, -> 'is a nested struct'
+      When {t: true}, -> 'true prop'
+      When {f: false}, -> 'false prop'
+      When true, -> 'true'
+      When false, -> 'false'
+      When [true, false], -> 'bool array'
     ]
     it 'shall match number', ->
       expect(fn 3).toEqual('is a 3')
@@ -43,6 +48,15 @@ describe 'Match', ->
       expect(fn [1,2]).toEqual('is an array')
     it 'shall match nested struct', ->
       expect(fn {x: {y: [1,2]}}).toEqual('is a nested struct')
+    it 'shall match bool fields', ->
+      expect(fn {t: true}).toEqual('true prop')
+      expect(fn {f: false}).toEqual('false prop')
+    it 'shall match bool vars', ->
+      expect(fn true).toEqual('true')
+      expect(fn false).toEqual('false')
+    it 'shall match bool array', ->
+      expect(fn [true, false]).toEqual('bool array')
+
 
   describe 'with destruction', ->
     fnSimple = Match -> [
@@ -109,6 +123,14 @@ describe 'Match', ->
       ]
       expect(fn [10, 1, 2]).toEqual([1,[2]])
       expect(fn [20, 1, 2]).toEqual([1,[2]])
+
+
+    it 'shall not destruct string as array', ->
+      fn = Match -> [
+        When [@head | @tail], -> [@head, @tail]
+      ]
+      expect(-> fn "str").toThrow()
+
 
     fnStructSimple = Match -> [
       When @a = {x: 3}, -> @a

@@ -38,13 +38,12 @@ function createParser(firstArgName, plugins) {
           var newname = "$" + vidx++;
           cmds.push(new Command(command, varname, value, newname));
           refDelegated = delegateRef;
-          if (patternSubitem === true) {
-            //subitem omited, no parse, but delegate reference if needed
+          if (typeof patternSubitem != "undefined") {
+            parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
+          }
+          else if (delegateRef) {
             refDelegated = true;
             addRef(newname, defn.reference);
-          }
-          else if (patternSubitem) {
-            parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
           }
         },
         yieldSubitem: function(command, value, patternSubitem, delegateRef) {
