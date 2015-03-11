@@ -162,7 +162,7 @@ console.log fn.matchFn.toString()
 
 Procrust has all patterns processing implemented as plugins. You may refer to src/plugins folder for more information.
 
-Also here is a jsfiddle with regexp plugin - http://jsfiddle.net/GRaAL/6pouevw6/.
+Also here is a jsfiddle with regexp plugin - http://jsfiddle.net/GRaAL/n9jkvnn7/.
 It allows to parse regexps this way:
 
 ```coffeescript
