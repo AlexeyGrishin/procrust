@@ -199,12 +199,7 @@
         return function createFn(commands, options) {
           options = options || {debug: {}};
       
-          var temp = {
-            vars: {},
-            next: 1,
-            all: []
-          };
-          temp.vars[firstArgName] = firstArgName;
+          var usedVars = {};
       
           function addPad(pad, item) {
             return pad + item;
@@ -242,9 +237,7 @@
               });
             }
       
-            //TODO: instead of createVar - just provide newvar (already created)
-            //TODO: no need in getVar
-            var rendered = plugins.render(command, addVar(command.var), addVar(command.newvar), getVar);
+            var rendered = plugins.render(command, addVar(command.var), addVar(command.newvar));
             if (rendered === false) {
               throw new Error("Do not know how to render this: " + JSON.stringify(command))
             }
@@ -258,27 +251,15 @@
               return renderConditionCheck(rendered, ret);
             }
       
-            function createVar(prefix) {
-              var newvar;
-              temp.all.push(temp.vars[command.newvar] = newvar = (prefix ? prefix : "var") + "$" + temp.next);
-              temp.next++;
-              return newvar;
-            }
-      
-            function getVar(name) {
-              return temp.vars[name];
-            }
-      
             function addVar(name) {
               if (typeof name == 'undefined') return;
-              temp.vars[name] = name;
-              temp.all.push(name);
+              usedVars[name] = name;
               return name;
             }
           }
       
           var code = renderExpressions("return false", padStep, commands);
-          code.unshift(padStep + "var " + [resVarName].concat(temp.all).join(", ") + ";");
+          code.unshift(padStep + "var " + [resVarName].concat(Object.keys(usedVars)).join(", ") + ";");
           try {
             var fn = new Function(firstArgName, secondArgName, guardArgName, code.join("\n"));
             if (options.debug.functions) {

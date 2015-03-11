@@ -10,12 +10,6 @@ function createParser(firstArgName, plugins) {
     return ad.command == this.command && ad.index == this.index;
   };
 
-  //TODO: use same variable names in parser and renderer
-  //TODO: use addCheck(name, arg) and addVariable(name, arg, subitem, delegate). probably yieldNext(subitem, addVariable(name, arg, delegate))
-  //TODO: for regexp - make possible to write like:
-  //    regexpResult = f.addVariable('regexp', source, true)
-  //    for vr,i in vars
-  //      f.yieldNext(vr, f.addVariable('regexp_item', i+1, regexpResult))
   return function parse(pattern, idx, helper) {
     var cmds = [];
     var refs = [];
