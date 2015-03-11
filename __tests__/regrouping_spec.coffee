@@ -1,5 +1,5 @@
 jest.dontMock '../procrust'
-{Tail, Match, When, Having, functionMatch} = pm = require('../procrust')
+{Tail, Match, When, Having} = pm = require('../procrust')
 {createRegrouper} = pm
 
 describe 'regrouper', ->

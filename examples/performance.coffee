@@ -1,4 +1,4 @@
-{Tail, Match, When, Having, functionMatch} = pm = require('./../procrust')
+{Tail, Match, When, Having} = pm = require('./../procrust')
 
 pm.debug.functions = true
 pm.debug.parsed = true

@@ -1,5 +1,5 @@
 jest.dontMock '../procrust'
-{Tail, Match, When, Having, ObjectOf, functionMatch} = pm = require('../procrust')
+{Tail, Match, When, Having, ObjectOf} = pm = require('../procrust')
 
 this.ctx =
   called_primitive: false

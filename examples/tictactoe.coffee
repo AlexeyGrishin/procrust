@@ -1,27 +1,27 @@
-{Tail, Match, When, Having, functionMatch} = pm = require('./../procrust')
+{Tail, Match, When, Having} = pm = require('./../procrust')
 
 checkBounds = (field, x,y) ->
   x >=0 and y >=0 and x < field.width and y < field.height
 
-findOnField = functionMatch -> [
+findOnField = Match -> [
   When [], @x, @y, -> false
   When [{side: @side, x: @x, y: @y}, Tail(@tail)], @x, @y, -> @side
   When [@head | @tail], @x, @y, -> findOnField(@tail, @x, @y)
 ]
 
-find = functionMatch -> [
+find = Match -> [
   When @field, @x, @y, Having(-> !checkBounds(@field, @x, @y)) -> throw new Error("Invalid coords: #{@x}, #{@y}")
   When @field, @x, @y, -> findOnField(@field.field, @x, @y)
 ]
 opposite = {x: 'o', o: 'x'}
 
-turnOnField = functionMatch -> [
+turnOnField = Match -> [
   When [{side: @_, x: @x, y: @y}, Tail(@tail)], @x, @y, @_, -> throw new Error "Cell #{@x}, #{@y} is busy"
   When [], @x, @y, @side, -> [{side: @side, x:@x, y:@y}]
   When [@head | @tail], @x, @y, @side, -> [@head].concat(turnOnField(@tail, @x, @y, @side))
 ]
 
-turn = functionMatch -> [
+turn = Match -> [
   When @field, @_, @_, Having(-> @field.winner) -> throw new Error "Game is over"
   When @field, @x, @y, Having(-> !checkBounds(@field, @x, @y)) -> throw new Error("Invalid coords: #{@x}, #{@y}")
   When @field, @x, @y, ->

@@ -1,5 +1,5 @@
 jest.dontMock '../procrust'
-{Tail, Match, When, Having, ObjectOf, functionMatch} = pm = require('../procrust')
+{Tail, Match, When, Having, ObjectOf} = pm = require('../procrust')
 
 class MyClass
 
@@ -274,8 +274,8 @@ describe 'Match', ->
       expect(fn 1).toEqual("3 1")
 
 
-describe 'functionMatch', ->
-  fn = functionMatch -> [
+describe 'different arguments count', ->
+  fn = Match -> [
     When @param1, -> "1 param"
     When @param1, @param2, -> "2 params"
     When @param1 | @params, -> "#{@params.length + 1} params"

@@ -46,7 +46,6 @@
     }
   };
   exports.Match = Match;
-  exports.functionMatch = functionMatch;
   exports.When = When;
   exports.Having = Having;
   exports.Tail = pluginHeadTail.createTail;

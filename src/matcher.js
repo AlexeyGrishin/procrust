@@ -1,8 +1,3 @@
-//Global context - used to pass data from Match to Whens
-var context = {
-  kvars: {}
-};
-
 //Represents placeholder variable (i.e. @x, @y, etc.) that will be filled with value during destruction
 //@param key - is a variable name
 function Placeholder(key) {
@@ -13,6 +8,8 @@ Placeholder.prototype = {
     return new Placeholder(this.__key);
   }
 };
+
+//special 'wildcard' variable which matches anything
 var _ = new Placeholder("_");
 _.meet = function() {
   return this;
@@ -23,14 +20,23 @@ function isPrimitive(obj) {
   return type === "string" || type === "number" || type === "boolean";
 }
 
-function createPlaceholder(name) {
+//Here we define getter/setter for each variable like @x (== this.x)
+//We cannot just assign Placeholder object because we need to catch assignment.
+function createPlaceholder(context, name) {
   var placeholder = name === "_" ? _ : new Placeholder(name);
 
-  Object.defineProperty(context.kvars, name, {
+  Object.defineProperty(context, name, {
+    //allow redefinition
     configurable: true,
+
+    //just return placeholder copy
     get: function() {
       return placeholder.meet();
     },
+
+    //in expression like `When @x = {a:1}` the right part ({a:1}) will be returned, so we'll miss the knowledge about variable
+    //so here in setter we add reference to @x to the assigned object
+    //it does not work with primitives, but I do not think it is a problem (why do we need to write `When @x = 5` ?)
     set: function(vl) {
       if (vl === null) return;
       if (vl.__key) throw new Error("Cannot assign pattern variables to each other!");
@@ -77,11 +83,12 @@ function Match(whensFactories) {
       whensFactories = arguments[1];
     }
   }
-  getAll(/this\.([a-zA-Z0-9_]+)/gi, whensFactories.toString()).map(createPlaceholder);
+  var context = {};
+  getAll(/this\.([a-zA-Z0-9_]+)/gi, whensFactories.toString()).map(createPlaceholder.bind(null, context));
   plugins = pluginsFactory.create();
   plugins.before_parse();
   try {
-    patternsAndFns = whensFactories.call(context.kvars);
+    patternsAndFns = whensFactories.call(context);
   }
   finally {
     plugins.after_parse();  //TODO: rename
@@ -100,10 +107,10 @@ function Match(whensFactories) {
   if (typeof value !== 'undefined') return match(value);
   return match;
 
-  function match(value) {
-    var res = compiled(value, whenFns, guards);
+  function match() {
+    var res = compiled(arguments, whenFns, guards);
     if (res) return res.ok;
-    throw new Error("Value is not matched by any condition: '" + value + "'");
+    throw new Error("Arguments are not matched by any condition: " + [].slice.call(arguments).join(",") + "");
   }
 }
 
@@ -124,11 +131,9 @@ function doCompilePatterns(patterns, plugins) {
 }
 
 function When(pattern, execute) {
-  if (context.multipleParamsInWhen) {
-    var args = [].slice.call(arguments);
-    execute = args.pop();
-    pattern = args;
-  }
+  var args = [].slice.call(arguments);
+  execute = args.pop();
+  pattern = new ArgumentsPattern(args);
   var guards = [];
   var guardSucceeded = function() { return true;};
   if (Array.isArray(execute)) {
@@ -145,15 +150,5 @@ function When(pattern, execute) {
 function Having(guardFn) {
   return function(execute) {
     return [guardFn, execute]
-  }
-}
-
-function functionMatch() {
-  context.multipleParamsInWhen = true;
-  var fn = Match.apply(this, arguments);
-  context.multipleParamsInWhen = false;
-  return function() {
-    var args = [].slice.call(arguments);
-    return fn(args);
   }
 }
