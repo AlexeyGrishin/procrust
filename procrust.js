@@ -61,6 +61,12 @@
           return ad.command == this.command && ad.index == this.index;
         };
       
+        //TODO: use same variable names in parser and renderer
+        //TODO: use addCheck(name, arg) and addVariable(name, arg, subitem, delegate). probably yieldNext(subitem, addVariable(name, arg, delegate))
+        //TODO: for regexp - make possible to write like:
+        //    regexpResult = f.addVariable('regexp', source, true)
+        //    for vr,i in vars
+        //      f.yieldNext(vr, f.addVariable('regexp_item', i+1, regexpResult))
         return function parse(pattern, idx, helper) {
           var cmds = [];
           var refs = [];
@@ -74,41 +80,38 @@
           }
           var vidx = 1;
       
-          function parse(varname, part, delegatedReference) {
+          function parse(varname, part) {
             var defn = {};
             defn.varname = varname;
             defn.type = getTypeName(part);
-            defn.reference = helper.getResultRef(part) || delegatedReference;//TODO: shall process both references, but it shall be very rare case
-            var refDelegated = false;
+            defn.reference = helper.getResultRef(part);
+            var refFromVariable = varname;
       
             var parsingFlow = {
               addCheck: function(command, value) {
                 cmds.push(new Command(command, varname, value));
               },
-              addSubitem: function(command, value, patternSubitem, delegateRef) {
+              addVariable: function(command, value, applyTo) {
                 var newname = "$" + vidx++;
-                cmds.push(new Command(command, varname, value, newname));
-                refDelegated = delegateRef;
-                if (typeof patternSubitem != "undefined") {
-                  parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
-                }
-                else if (delegateRef) {
-                  refDelegated = true;
-                  addRef(newname, defn.reference);
-                }
+                cmds.push(new Command(command, applyTo || varname, value, newname));
+                return newname;
               },
-              yieldSubitem: function(command, value, patternSubitem, delegateRef) {
-                this.addSubitem(command, value, patternSubitem, delegateRef);
+              delegateReference: function(varname) {
+                refFromVariable = varname;
+                return varname;
               },
-              yieldAs: function(pattern) {
-                parse(varname, pattern);
+              yieldNext: function(patternSubitem, variableName) {
+                if (typeof variableName == 'undefined') {
+                  variableName = varname;
+                }
+                parse(variableName, patternSubitem)
               }
             };
       
             if (plugins.parse(part, parsingFlow, defn) === false) {
               throw new Error("Do not know how to parse: " + JSON.stringify(part) );
             }
-            if (!refDelegated) addRef(varname, defn.reference);
+            addRef(refFromVariable, defn.reference);
       
           }
           parse(firstArgName, pattern);
@@ -239,9 +242,14 @@
               });
             }
       
-            var rendered = plugins.render(command, getVar(command.var), createVar, getVar);
+            //TODO: instead of createVar - just provide newvar (already created)
+            //TODO: no need in getVar
+            var rendered = plugins.render(command, addVar(command.var), addVar(command.newvar), getVar);
             if (rendered === false) {
               throw new Error("Do not know how to render this: " + JSON.stringify(command))
+            }
+            else if (typeof rendered == 'undefined') {
+              return [];
             }
             else if (rendered.noIf) {
               return rendered.noIf;
@@ -259,6 +267,13 @@
       
             function getVar(name) {
               return temp.vars[name];
+            }
+      
+            function addVar(name) {
+              if (typeof name == 'undefined') return;
+              temp.vars[name] = name;
+              temp.all.push(name);
+              return name;
             }
           }
       
@@ -370,7 +385,7 @@
             f.addCheck("lengthEq", part.length);
           }
           for (var i = 0; i < part.length; i++) {
-            f.yieldSubitem("item", i, part[i]);
+            f.yieldNext(part[i], f.addVariable("item", i));
           }
         },
     
@@ -378,8 +393,8 @@
           return "Array.isArray(" + varname + ") && " + varname + ".length === " + command.value;
         },
     
-        render_item: function(command, varname, createVar) {
-          return "(" + createVar("item" + command.value) + " = " + varname + "[" + command.value + "]) != null";
+        render_item: function(command, varname, subitemVar) {
+          return "(" + subitemVar + " = " + varname + "[" + command.value + "]) != null";
         }
       }
     }
@@ -438,11 +453,11 @@
           function pluginDone(resVarName, secondArgName, guardArgName) {
           
             return {
-              render_done: function(command, varname, createVar, getVar) {
+              render_done: function(command) {
                 var result = [];
                 for (var ref in command.value) {
                   if (!command.value.hasOwnProperty(ref)) continue;
-                  result.push("'" + ref + "': " + getVar(command.value[ref]));
+                  result.push("'" + ref + "': " + command.value[ref]);
                 }
                 return {noIf: [
                   resVarName + " = {" + result.join(', ') + "};",
@@ -450,8 +465,8 @@
                 ]}
               },
           
-              render_ref: function(command, varname, createVar, getVar) {
-                return varname + " === " + getVar(command.value);
+              render_ref: function(command, varname) {
+                return varname + " === " + command.value;
               }
             }
           }
@@ -487,16 +502,16 @@
             
                     f.addCheck("lengthGe", beforeTail.length);
                     this.ignoreLengthFor(beforeTail);
-                    f.yieldAs(beforeTail);
-                    f.yieldSubitem("tail", beforeTail.length, tail);
+                    f.yieldNext(beforeTail);
+                    f.yieldNext(tail, f.addVariable("tail", beforeTail.length));
                   },
             
                   render_lengthGe: function(command, varname) {
                     return "Array.isArray(" + varname + ") && " + varname + ".length >= " + command.value;
                   },
             
-                  render_tail: function(command, varname, createVar) {
-                    return {noIf: createVar("tail") + " = " + varname + ".slice(" + command.value + ")"};
+                  render_tail: function(command, varname, subitemVar) {
+                    return {noIf: subitemVar + " = " + varname + ".slice(" + command.value + ")"};
                   }
             
               }
@@ -510,12 +525,12 @@
                     var keys = Object.keys(part);
                     keys.sort();
                     for (var i = 0; i < keys.length; i++) {
-                      f.yieldSubitem("prop", keys[i], part[keys[i]]);
+                      f.yieldNext(part[keys[i]], f.addVariable("prop", keys[i]));
                     }
                   },
               
-                  render_prop: function(command, varname, createVar) {
-                    return "(" + createVar(command.value) + " = " + varname + "." + command.value + ") != null";
+                  render_prop: function(command, varname, subitemVar) {
+                    return "(" + subitemVar + " = " + varname + "." + command.value + ") != null";
                   }
                 }
               }
@@ -529,8 +544,8 @@
                   return {
                     parse: function(part, f) {
                       if (part instanceof ObjectMatcher) {
-                        f.yieldAs(part.klass);
-                        f.yieldAs(part.props);
+                        f.yieldNext(part.klass);
+                        f.yieldNext(part.props);
                         return true;
                       }
                       return false;
@@ -625,7 +640,7 @@
           f.addCheck("value", part);
         },
     
-        render_value: function(command, varname, createVar) {
+        render_value: function(command, varname) {
           return varname + " === " + JSON.stringify(command.value);
         }
       }
@@ -641,9 +656,7 @@
             f.addCheck("any")
           },
       
-          render_any: function() {
-            return {noIf: []};
-          }
+          render_any: function() {}
         }
       }
       

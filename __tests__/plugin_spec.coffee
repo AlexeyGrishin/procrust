@@ -15,7 +15,10 @@ myPlugin = ->
 
   parse_array: (part, f) ->
     f.addCheck("mycheck", "called_array")
-    if (part.length > 0) then f.yieldSubitem("item", 0, part[0], true)
+    if (part.length > 0)
+      f.yieldNext(part[0], f.delegateReference(f.addVariable("item", 0)))
+
+
 
   render_mycheck: (cmd, varname) ->
     return { noIf: "this.ctx.#{cmd.value} = true" }

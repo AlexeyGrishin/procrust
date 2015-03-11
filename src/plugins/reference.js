@@ -9,8 +9,6 @@ function pluginReference() {
       f.addCheck("any")
     },
 
-    render_any: function() {
-      return {noIf: []};
-    }
+    render_any: function() {}
   }
 }

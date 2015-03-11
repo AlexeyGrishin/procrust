@@ -8,8 +8,8 @@ function pluginObjectOf() {
   return {
     parse: function(part, f) {
       if (part instanceof ObjectMatcher) {
-        f.yieldAs(part.klass);
-        f.yieldAs(part.props);
+        f.yieldNext(part.klass);
+        f.yieldNext(part.props);
         return true;
       }
       return false;

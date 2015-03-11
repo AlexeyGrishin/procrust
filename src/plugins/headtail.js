@@ -30,16 +30,16 @@ function pluginHeadTail() {
 
         f.addCheck("lengthGe", beforeTail.length);
         this.ignoreLengthFor(beforeTail);
-        f.yieldAs(beforeTail);
-        f.yieldSubitem("tail", beforeTail.length, tail);
+        f.yieldNext(beforeTail);
+        f.yieldNext(tail, f.addVariable("tail", beforeTail.length));
       },
 
       render_lengthGe: function(command, varname) {
         return "Array.isArray(" + varname + ") && " + varname + ".length >= " + command.value;
       },
 
-      render_tail: function(command, varname, createVar) {
-        return {noIf: createVar("tail") + " = " + varname + ".slice(" + command.value + ")"};
+      render_tail: function(command, varname, subitemVar) {
+        return {noIf: subitemVar + " = " + varname + ".slice(" + command.value + ")"};
       }
 
   }

@@ -1,6 +1,6 @@
 {
   "name": "procrust.js",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Pattern matching for javascript (better with coffeescript)",
   "main": "procrust.js",
   "directories": {

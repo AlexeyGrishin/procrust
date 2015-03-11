@@ -5,7 +5,7 @@ function pluginPrimitive() {
       f.addCheck("value", part);
     },
 
-    render_value: function(command, varname, createVar) {
+    render_value: function(command, varname) {
       return varname + " === " + JSON.stringify(command.value);
     }
   }

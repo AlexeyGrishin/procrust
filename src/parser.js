@@ -29,41 +29,38 @@ function createParser(firstArgName, plugins) {
     }
     var vidx = 1;
 
-    function parse(varname, part, delegatedReference) {
+    function parse(varname, part) {
       var defn = {};
       defn.varname = varname;
       defn.type = getTypeName(part);
-      defn.reference = helper.getResultRef(part) || delegatedReference;//TODO: shall process both references, but it shall be very rare case
-      var refDelegated = false;
+      defn.reference = helper.getResultRef(part);
+      var refFromVariable = varname;
 
       var parsingFlow = {
         addCheck: function(command, value) {
           cmds.push(new Command(command, varname, value));
         },
-        addSubitem: function(command, value, patternSubitem, delegateRef) {
+        addVariable: function(command, value, applyTo) {
           var newname = "$" + vidx++;
-          cmds.push(new Command(command, varname, value, newname));
-          refDelegated = delegateRef;
-          if (typeof patternSubitem != "undefined") {
-            parse(newname, patternSubitem, delegateRef ? defn.reference : undefined);
-          }
-          else if (delegateRef) {
-            refDelegated = true;
-            addRef(newname, defn.reference);
-          }
+          cmds.push(new Command(command, applyTo || varname, value, newname));
+          return newname;
         },
-        yieldSubitem: function(command, value, patternSubitem, delegateRef) {
-          this.addSubitem(command, value, patternSubitem, delegateRef);
+        delegateReference: function(varname) {
+          refFromVariable = varname;
+          return varname;
         },
-        yieldAs: function(pattern) {
-          parse(varname, pattern);
+        yieldNext: function(patternSubitem, variableName) {
+          if (typeof variableName == 'undefined') {
+            variableName = varname;
+          }
+          parse(variableName, patternSubitem)
         }
       };
 
       if (plugins.parse(part, parsingFlow, defn) === false) {
         throw new Error("Do not know how to parse: " + JSON.stringify(part) );
       }
-      if (!refDelegated) addRef(varname, defn.reference);
+      addRef(refFromVariable, defn.reference);
 
     }
     parse(firstArgName, pattern);

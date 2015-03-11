@@ -1,11 +1,11 @@
 function pluginDone(resVarName, secondArgName, guardArgName) {
 
   return {
-    render_done: function(command, varname, createVar, getVar) {
+    render_done: function(command) {
       var result = [];
       for (var ref in command.value) {
         if (!command.value.hasOwnProperty(ref)) continue;
-        result.push("'" + ref + "': " + getVar(command.value[ref]));
+        result.push("'" + ref + "': " + command.value[ref]);
       }
       return {noIf: [
         resVarName + " = {" + result.join(', ') + "};",
@@ -13,8 +13,8 @@ function pluginDone(resVarName, secondArgName, guardArgName) {
       ]}
     },
 
-    render_ref: function(command, varname, createVar, getVar) {
-      return varname + " === " + getVar(command.value);
+    render_ref: function(command, varname) {
+      return varname + " === " + command.value;
     }
   }
 }

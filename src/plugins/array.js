@@ -17,7 +17,7 @@ function pluginArray() {
         f.addCheck("lengthEq", part.length);
       }
       for (var i = 0; i < part.length; i++) {
-        f.yieldSubitem("item", i, part[i]);
+        f.yieldNext(part[i], f.addVariable("item", i));
       }
     },
 
@@ -25,8 +25,8 @@ function pluginArray() {
       return "Array.isArray(" + varname + ") && " + varname + ".length === " + command.value;
     },
 
-    render_item: function(command, varname, createVar) {
-      return "(" + createVar("item" + command.value) + " = " + varname + "[" + command.value + "]) != null";
+    render_item: function(command, varname, subitemVar) {
+      return "(" + subitemVar + " = " + varname + "[" + command.value + "]) != null";
     }
   }
 }
