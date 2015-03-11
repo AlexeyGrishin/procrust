@@ -216,13 +216,15 @@
           return renderDebug(cond) + "if (!(" + cond + ")) " + ret + ";";
         }
     
+        var forkId = 0;
+    
         function renderFork(pad, fork) {
           if (fork.if.command === "done" && fork.then.length == 0) {
             return renderExpression("break", pad, fork.if);
           }
-          return ["do {"]
-            .concat(renderExpressions("break", pad, [fork.if].concat(fork.then)))
-            .concat(["} while(false);"]);
+          return ["fork" + ++forkId + ": {"]
+            .concat(renderExpressions("break fork" + forkId, pad, [fork.if].concat(fork.then)))
+            .concat(["}"]);
         }
     
         function renderExpression(ret, pad, command) {
