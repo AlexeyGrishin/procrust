@@ -9,10 +9,9 @@ Example of usage - http://jsfiddle.net/GRaAL/cowzckLc/
 See it on jsfiddle - http://jsfiddle.net/GRaAL/a5qh6pob/
 
 ```coffeescript
-# See full API description further for all exported functions list
-{Match, When, Having, ObjectOf} = require('./procrust.js')
+{Match, When, Having, ObjectOf, Tail} = require('./procrust.js')
 
-# Here we create function that accepts single argument and compares it with provided patterns.
+# Here we create function that accepts any number of arguments and compares it with provided patterns.
 # If no one matches then exception will be thrown.
 # Patterns are checked one by one in order they appear in the code.
 fn = Match -> [
@@ -60,6 +59,10 @@ fn = Match -> [
   #    fn([]) does not
   When [@head | @tail],   -> "split on head and tail - #{@head} | #{@tail}"
 
+  # That fancy '|' way does not work for primitives, so tail shall be marked explicitly with Tail function
+  #    fn(["start", 1, 2]) matches (so tail = [1,2])
+  When ["start", Tail(@tail)],  -> "split on primitive head and tail #{@tail}"
+
   # Matches object with existent field 'a'. Ignores presence of other fields. And binds field's value to variable @a
   #    fn({a: 10}) matches
   #    fn({a: 10, b: 20}) matches
@@ -88,8 +91,16 @@ fn = Match -> [
   When @s = String, Having(-> @s[0] == '!') -> "guard expression for string #{@s} (shall start with exclamation mark)"
   When @s = String,        -> "no guard expression - any string #{@s}"
 
-  # This pattern matches everything (except undefined/null)
+  # This pattern matches any single argument (except undefined/null)
   When @_,                 -> "anything else"
+
+  # This pattern matches two different arguments
+  #    fn("test", "one") matches
+  When @_, @_,             -> "two arguments"
+
+  # And here we match 3 or more arguments
+  #    fn("one", "ring", "to", "rule", "them", "all") matches
+  When @a, @b, @c | @x,    -> "three and more!"
 ]
 
 # Simple class
@@ -114,12 +125,12 @@ Just get `procrust.js` from this repo. Will put it to npm later.
 
 In node.js:
 ```coffeescript
-{When, Match, ObjectOf} = require('./procrust.js')
+{When, Match, ObjectOf, Having, Tail} = require('./procrust.js')
 ```
 
 In browser:
 ```coffeescript
-{When, Match, ObjectOf} = window.procrust
+{When, Match, ObjectOf, Having, Tail} = window.procrust
 ```
 
 
@@ -140,39 +151,29 @@ procrust.debug.functions = true
 
 # Prints failed conditions while executing matching functions
 procrust.debug.matching = true
+
+# Print single compiled function body
+fn = Match -> [...]
+console.log fn.matchFn.toString()
+
 ```
 
 # Writing plugins
 
 Procrust has all patterns processing implemented as plugins. You may refer to src/plugins folder for more information.
 
-If you'd like to introduce your own matching syntax then you need to do the following:
-1. Create plugin factory function:
-```javascript
-function myPlugin() {
-  return {
-    //...plugin code
-  }
-}
+Also here is a jsfiddle with regexp plugin - http://jsfiddle.net/GRaAL/6pouevw6/.
+It allows to parse regexps this way:
+
+```coffeescript
+fn = Match -> [
+  When @res = /(\d+):(\d+)/, -> hours: @res[1], mins: @res[2]
+  # or
+  When RE(/(\d+):(\d+)/, @hours, @min), -> {@hours, @mins}
+]
 ```
-2. Implement parsing function depending of types you'd like to parse - `parse_array`, `parse_object`, `parse_primitive`, `parse_function`, or just `parse` for anything else
-```javascript
-   parse_array: function(part, f) {
-     //here part - is array
-
-     //if you do not want to parse it - return false and it will be passed to other plugins
-     if (...) return false;
-
-    TBD
-   }
-```
-
-Example of plugin creation could be found here - http://jsfiddle.net/GRaAL/6pouevw6/
 
 # Performance
 
-You may run `performance.coffee` from examples. Or also here is a js-per which compares procrust matching, native coffeescript matching and `pun` library - http://jsperf.com/procrust-js-vs-manual-parsing/2
+You may run `performance.coffee` from examples. Or also here is a js-perf which compares procrust matching, native coffeescript matching and `pun` library - http://jsperf.com/procrust-js-vs-manual-parsing/2
 
-# Full API
-
-TBD
