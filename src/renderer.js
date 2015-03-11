@@ -51,6 +51,7 @@ function createRenderer(firstArgName, secondArgName, guardArgName, plugins) {
         });
       }
 
+      //TODO: instead of createVar - just provide newvar (already created)
       var rendered = plugins.render(command, getVar(command.var), createVar, getVar);
       if (rendered === false) {
         throw new Error("Do not know how to render this: " + JSON.stringify(command))
