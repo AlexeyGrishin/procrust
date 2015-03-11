@@ -60,8 +60,8 @@ fn = Match -> [
   When [@head | @tail],   -> "split on head and tail - #{@head} | #{@tail}"
 
   # That fancy '|' way does not work for primitives, so tail shall be marked explicitly with Tail function
-  #    fn(["start", 1, 2]) matches (so tail = [1,2])
-  When ["start", Tail(@tail)],  -> "split on primitive head and tail #{@tail}"
+  #    fn(x:["start", 1, 2]) matches (so tail = [1,2])
+  When x:["start", Tail(@tail)],  -> "split on primitive head and tail #{@tail}"
 
   # Matches object with existent field 'a'. Ignores presence of other fields. And binds field's value to variable @a
   #    fn({a: 10}) matches
