@@ -7,30 +7,48 @@ function createParser(firstArgName, plugins) {
   }
 
   Done.prototype.eq = function(ad) {
-    return ad.command == this.command && ad.index == this.index;
+    return ad.command === this.command && ad.index === this.index;
   };
 
   return function parse(pattern, idx, helper) {
-    var cmds = [];
-    var refs = [];
+    var cmds = [], refs = [], vidx = 1;
 
     function addRef(varname, ref) {
-      if (!ref) return;
+      if (!ref) {
+        return;
+      }
       if (refs[ref]) {
         cmds.push(new Command("ref", varname, refs[ref]));
       }
       refs[ref] = varname;
     }
-    var vidx = 1;
 
-    function parse(varname, part) {
-      var defn = {};
+    function getTypeName(part) {
+      if (part === undefined || part === null) {
+        return "undefined";
+      }
+      if (helper.isResultVar(part)) {
+        return helper.isWildcard(part) ? "wildcard": "var";
+      }
+      if (Array.isArray(part)) {
+        return "array";
+      }
+      if (typeof part === "object") {
+        return "object";
+      }
+      if (typeof part === "function") {
+        return "function";
+      }
+      return "primitive";
+    }
+
+    function parsePart(varname, part) {
+      var refFromVariable = varname, defn = {}, parsingFlow;
       defn.varname = varname;
       defn.type = getTypeName(part);
       defn.reference = helper.getResultRef(part);
-      var refFromVariable = varname;
 
-      var parsingFlow = {
+      parsingFlow = {
         addCheck: function(command, value) {
           cmds.push(new Command(command, varname, value));
         },
@@ -44,10 +62,10 @@ function createParser(firstArgName, plugins) {
           return varname;
         },
         yieldNext: function(patternSubitem, variableName) {
-          if (typeof variableName == 'undefined') {
+          if (variableName === undefined) {
             variableName = varname;
           }
-          parse(variableName, patternSubitem)
+          parsePart(variableName, patternSubitem);
         }
       };
 
@@ -57,30 +75,10 @@ function createParser(firstArgName, plugins) {
       addRef(refFromVariable, defn.reference);
 
     }
-    parse(firstArgName, pattern);
+    parsePart(firstArgName, pattern);
     cmds.push(new Done(idx, refs));
     return cmds;
 
-    function getTypeName(part) {
-      if (typeof part == "undefined" || part == null) {
-        return "undefined";
-      }
-      if (helper.isResultVar(part)) {
-        return helper.isWildcard(part) ? "wildcard": "var";
-      }
-      if (Array.isArray(part)) {
-        return "array";
-      }
-      if (typeof part == "object") {
-        return "object";
-      }
-      if (typeof part == "function") {
-        return "function";
-      }
-      else {
-        return "primitive";
-      }
-    }
 
   };
 

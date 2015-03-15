@@ -7,10 +7,11 @@ function pluginBitregistry() {
     objs: {},
     pairs: {},
     assign: function(obj) {
-      var idx = this.idx;
+      var idx = this.idx, headIdx;
       this.objs[idx] = obj;
+      /*jslint bitwise: true*/
       if (!this.head) {
-        var headIdx = idx >> 1;
+        headIdx = idx >> 1;
         this.pairs[headIdx | idx] = [this.objs[headIdx], obj];
       }
       this.idx = this.idx << 1;
@@ -30,11 +31,11 @@ function pluginBitregistry() {
       this.oldValueOf = Object.prototype.valueOf;
       Object.prototype.valueOf = function() {
         return bitRegistry.assign(this);
-      }
+      };
     },
 
     after_parse: function() {
       Object.prototype.valueOf = this.oldValueOf;
     }
-  }
+  };
 }

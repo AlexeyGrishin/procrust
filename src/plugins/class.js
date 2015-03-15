@@ -8,5 +8,5 @@ function pluginConstructor() {
     render_constructor: function(command, varname) {
         return varname + ".constructor.name === " + JSON.stringify(command.value);
     }
-  }
+  };
 }

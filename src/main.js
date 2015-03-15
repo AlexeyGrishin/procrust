@@ -1,8 +1,11 @@
-(function(exports){
+
+(function (exports, glob) {
+  'use strict';
+  /*jslint white:true, nomen:true, plusplus:true*/
+
+  var compilePattern, pluginsFactory, _;
 
   // #include "common.js"
-  // #include "compiler.js"
-
   // #include "plugins/plugins.js"
   // #include "plugins/array.js"
   // #include "plugins/bitregistry.js"
@@ -11,12 +14,13 @@
   // #include "plugins/headtail.js"
   // #include "plugins/object.js"
   // #include "plugins/objectof.js"
-  // #include "plugins/plugins.js"
   // #include "plugins/primitive.js"
   // #include "plugins/reference.js"
 
-  // #include "matcher.js"
-  var pluginsFactory = new PluginsFactory()
+  // #include "compiler.js"
+
+
+  pluginsFactory = new PluginsFactory()
     .add(pluginBitregistry)
     .add(pluginHeadTail)
     .add(pluginArray)
@@ -25,6 +29,9 @@
     .add(pluginObject)
     .add(pluginReference)
     .add(pluginConstructor);
+
+  // #include "matcher.js"
+
   exports.plugins = {
     array: pluginArray,
     bitRegistry: pluginBitregistry,
@@ -56,4 +63,4 @@
     matching: false
   };
 
-})(typeof exports === 'undefined'? this['procrust']={}: exports);
+}(typeof exports === 'undefined'? this['procrust']={}: exports, typeof window === 'undefined' ? global : window));

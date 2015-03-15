@@ -10,9 +10,10 @@ function pluginArray() {
     },
 
     //specially for arguments.
-    //TODO: move to separate plugin
     parse_object: function(part, f) {
-      if (!(part instanceof ArgumentsPattern)) return false;
+      if (!(part instanceof ArgumentsPattern)) {
+        return false;
+      }
       return this._parse_arrayLike(part.args, f, "lengthEq");
     },
 
@@ -21,13 +22,14 @@ function pluginArray() {
     },
 
     _parse_arrayLike: function(part, f, lengthCmpCommand) {
+      var i;
       if (part.___ignore_length) {
         delete part.___ignore_length;
       }
       else {
         f.addCheck(lengthCmpCommand, part.length);
       }
-      for (var i = 0; i < part.length; i++) {
+      for (i = 0; i < part.length; i++) {
         f.yieldNext(part[i], f.addVariable("item", i));
       }
 
@@ -44,5 +46,5 @@ function pluginArray() {
     render_item: function(command, varname, subitemVar) {
       return "(" + subitemVar + " = " + varname + "[" + command.value + "]) != null";
     }
-  }
+  };
 }

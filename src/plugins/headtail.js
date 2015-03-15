@@ -10,7 +10,9 @@ function pluginHeadTail() {
       ignoreLengthFor: "require",
 
       parse_object: function(part, f) {
-        if (!(part instanceof ArgumentsPattern)) return false;
+        if (!(part instanceof ArgumentsPattern)) {
+          return false;
+        }
         return this._parse_arrayLike(part.args, f, "lengthGe");
       },
 
@@ -19,12 +21,13 @@ function pluginHeadTail() {
       },
 
       _parse_arrayLike: function(part, f, lengthCmpCommand) {
-        if (part.length == 0) return false;
-        var last = part[part.length - 1];
-        var beforeTail, tail = null;
+        if (part.length === 0) {
+          return false;
+        }
+        var last = part[part.length - 1], beforeTail, tail = null, ht;
         beforeTail = Array.prototype.slice.call(part, 0, part.length - 1);
         if (typeof last === "number") {
-          var ht = this.bitRegistry.find(last);
+          ht = this.bitRegistry.find(last);
           if (ht) {
             beforeTail.push(ht[0]);
             tail = ht[1];
@@ -33,7 +36,7 @@ function pluginHeadTail() {
         else if (last instanceof Tail) {
           tail = last.obj;
         }
-        if (tail == null) {
+        if (tail === null) {
           return false;
         }
 
@@ -55,7 +58,7 @@ function pluginHeadTail() {
         return {noIf: subitemVar + " = Array.prototype.slice.call(" + varname + ", " + command.value + ")"};
       }
 
-  }
+  };
 }
 pluginHeadTail.createTail = function createTail(o) { return new Tail(o);};
 

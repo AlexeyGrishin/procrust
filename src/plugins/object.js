@@ -2,9 +2,9 @@ function pluginObject() {
 
   return {
     parse_object: function(part, f) {
-      var keys = Object.keys(part);
+      var keys = Object.keys(part), i;
       keys.sort();
-      for (var i = 0; i < keys.length; i++) {
+      for (i = 0; i < keys.length; i++) {
         f.yieldNext(part[keys[i]], f.addVariable("prop", keys[i]));
       }
     },
@@ -12,5 +12,5 @@ function pluginObject() {
     render_prop: function(command, varname, subitemVar) {
       return "(" + subitemVar + " = " + varname + "." + command.value + ") != null";
     }
-  }
+  };
 }

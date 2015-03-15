@@ -8,5 +8,5 @@ function pluginPrimitive() {
     render_value: function(command, varname) {
       return varname + " === " + JSON.stringify(command.value);
     }
-  }
+  };
 }

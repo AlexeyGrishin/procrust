@@ -10,7 +10,7 @@ Placeholder.prototype = {
 };
 
 //special 'wildcard' variable which matches anything
-var _ = new Placeholder("_");
+_ = new Placeholder("_");
 _.meet = function() {
   return this;
 };
@@ -38,35 +38,36 @@ function createPlaceholder(context, name) {
     //so here in setter we add reference to @x to the assigned object
     //it does not work with primitives, but I do not think it is a problem (why do we need to write `When @x = 5` ?)
     set: function(vl) {
-      if (vl === null) return;
-      if (vl.__key) throw new Error("Cannot assign pattern variables to each other!");
+      if (vl === null) {
+        return;
+      }
+      if (vl.__key) {
+        throw new Error("Cannot assign pattern variables to each other!");
+      }
       if (isPrimitive(vl)) {
         throw new Error("Cannot assign pattern variable to constant num (well, why do you need it for?)");
       }
-      else {
-        if (!vl.hasOwnProperty("__reference")) {
-          var allRefs = [];
-          Object.defineProperty(vl, "__reference", {
-            configurable: false,
-            enumerable: false,
-            get: function() {
-              return allRefs.shift();
-            },
-            set: function(vl) {
-              allRefs.push(vl);
-            }
-          });
-        }
-        vl.__reference = placeholder.meet();
+      if (!vl.hasOwnProperty("__reference")) {
+        var allRefs = [];
+        Object.defineProperty(vl, "__reference", {
+          configurable: false,
+          enumerable: false,
+          get: function() {
+            return allRefs.shift();
+          },
+          set: function(vl) {
+            allRefs.push(vl);
+          }
+        });
       }
+      vl.__reference = placeholder.meet();
     }
   });
   return placeholder;
 }
 
 function getAll(regexp, text) {
-  var vals = {};
-  var val = regexp.exec(text);
+  var vals = {}, val = regexp.exec(text);
   while (val) {
     vals[val[1]] = true;
     val = regexp.exec(text);
@@ -75,15 +76,35 @@ function getAll(regexp, text) {
 }
 
 
-function Match(whensFactories) {
-  var value, patternsAndFns, patterns, whenFns, guards, compiled, plugins;
-  if (arguments.length == 2) {
-    if (typeof arguments[1] == 'function' && typeof arguments[0] != 'function') {
-      value = arguments[0];
-      whensFactories = arguments[1];
+function doCompilePatterns(patterns, plugins) {
+  return compilePattern(patterns, plugins, {
+    getResultRef: function(o) {
+      if (o === null || o === _) {
+        return null;
+      }
+      var lastRef = o.__reference;
+      if (lastRef) {
+        return lastRef.__key;
+      }
+      if (o.__key) {
+        return o.__key;
+      }
+    },
+    isResultVar: function(o) {return o instanceof Placeholder;},
+    isWildcard: function(i) { return i === _;},
+    renderOptions: {
+      debug: exports.debug
     }
+  });
+}
+
+function Match(value, whensFactories) {
+  var patternsAndFns, patterns, whenFns, guards, compiled, plugins, context;
+  if (arguments.length === 1) {
+    whensFactories = value;
+    value = undefined;
   }
-  var context = {};
+  context = {};
   getAll(/this\.([a-zA-Z0-9_]+)/gi, whensFactories.toString()).map(createPlaceholder.bind(null, context));
   plugins = pluginsFactory.create();
   plugins.before_parse();
@@ -91,7 +112,7 @@ function Match(whensFactories) {
     patternsAndFns = whensFactories.call(context);
   }
   finally {
-    plugins.after_parse();  //TODO: rename
+    plugins.after_parse();
   }
   patterns = _puck("pattern", patternsAndFns);
   guards = _puck("guard", patternsAndFns);
@@ -100,48 +121,40 @@ function Match(whensFactories) {
     compiled = doCompilePatterns(patterns, plugins);
   }
   catch (e) {
-    console.error(e, e.stack);
+    console.error(e, e.stack, whensFactories.toString());
     throw e;
   }
-  match.matchFn = compiled;
-  if (typeof value !== 'undefined') return match(value);
-  return match;
+
 
   function match() {
     var res = compiled(arguments, whenFns, guards);
-    if (res) return res.ok;
-    throw new Error("Arguments are not matched by any condition: " + [].slice.call(arguments).join(",") + "");
+    if (res) {
+      return res.ok;
+    }
+    throw new Error("Arguments are not matched by any condition: " + [].slice.call(arguments).join(","));
   }
+
+
+  match.matchFn = compiled;
+  if (value !== undefined) {
+    return match(value);
+  }
+  return match;
 }
 
-function doCompilePatterns(patterns, plugins) {
-  return compilePattern(patterns, plugins, {
-    getResultRef: function(o) {
-      if (o === _) return null;
-      var lastRef = o.__reference;
-      if (lastRef) return lastRef.__key;
-      if (o.__key) return o.__key;
-    },
-    isResultVar: function(o) {return o instanceof Placeholder;},
-    isWildcard: function(i) { return i === _;},
-    renderOptions: {
-      debug: exports.debug
-    }
-  })
-}
+
 
 function When(pattern, execute) {
-  var args = [].slice.call(arguments);
+  var args = [].slice.call(arguments), guards = [], guardSucceeded;
   execute = args.pop();
   pattern = new ArgumentsPattern(args);
-  var guards = [];
-  var guardSucceeded = function() { return true;};
+  guardSucceeded = function() { return true;};
   if (Array.isArray(execute)) {
     guards = execute;
     execute = guards.pop();
     guardSucceeded = function(ctx) {
-      return !guards.some(function(g) { return !g.call(ctx); })
-    }
+      return !guards.some(function(g) { return !g.call(ctx); });
+    };
   }
   return {pattern: pattern, guard: guardSucceeded, execute: function(ctx) { return execute.call(ctx); }};
 
@@ -149,6 +162,6 @@ function When(pattern, execute) {
 
 function Having(guardFn) {
   return function(execute) {
-    return [guardFn, execute]
-  }
+    return [guardFn, execute];
+  };
 }
