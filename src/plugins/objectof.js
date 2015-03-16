@@ -30,7 +30,10 @@ pluginObjectOf.ObjectOf = function objectOf(globOrFunc, funcOrProps, args) {
     return new ObjectMatcher(funcOrProps, args[0]);
   }
   if (typeof globOrFunc === 'function') {
-    return new ObjectMatcher(globOrFunc, funcOrProps);
+    function createMatcher(props) {
+      return new ObjectMatcher(globOrFunc, props);
+    }
+    return funcOrProps === undefined ? createMatcher : createMatcher(funcOrProps);
   }
   //this is normally created object, ignore
   return false;

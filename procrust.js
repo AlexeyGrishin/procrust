@@ -358,7 +358,10 @@
                     return new ObjectMatcher(funcOrProps, args[0]);
                   }
                   if (typeof globOrFunc === 'function') {
-                    return new ObjectMatcher(globOrFunc, funcOrProps);
+                    function createMatcher(props) {
+                      return new ObjectMatcher(globOrFunc, props);
+                    }
+                    return funcOrProps === undefined ? createMatcher : createMatcher(funcOrProps);
                   }
                   //this is normally created object, ignore
                   return false;
@@ -661,10 +664,17 @@
     this.__key = key;
   }
   Placeholder.prototype = {
+    length: 1,
     meet: function() {
       return new Placeholder(this.__key);
     }
   };
+  
+  //this is for [@head, @tail...] syntax
+  Object.defineProperty(Placeholder.prototype, 0, {
+    get: function() { return pluginHeadTail.createTail(this); }
+  });
+  
   
   //special 'wildcard' variable which matches anything
   _ = new Placeholder("_");

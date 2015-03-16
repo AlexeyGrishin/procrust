@@ -104,6 +104,12 @@ describe 'Match', ->
       ]
       expect(fnTail [1,2,3]).toEqual([2,3])
 
+    it 'shall destruct head and tail with native coffeescript syntax', ->
+      fnTail = Match -> [
+        When [@head, @tail...], -> @tail
+      ]
+      expect(fnTail [1,2,3]).toEqual([2,3])
+
     it 'shall destruct head and tail when head is struct', ->
       fnTail = Match -> [
         When [{x: 10} | @tail], -> @tail
@@ -181,8 +187,11 @@ describe 'Match', ->
       constructor: (@x, @y) ->
         return m if m = ObjectOf(@, MyClass2, arguments)
 
+    MyClass1$ = ObjectOf(MyClass1)
+
     fnClass = Match -> [
       When @o = ObjectOf(MyClass1, x:3, y:@y), -> [@y, @o.y]
+      When @o = MyClass1$(x:@x, y:15), -> [@x, @o.y]
       When MyClass1, -> "class1"
       When @o = MyClass2(x:5, y:@y), -> [@y, @o.y]
       When MyClass2, -> "class2"
@@ -195,6 +204,8 @@ describe 'Match', ->
     it 'shall destruct struct of specific type with specific properties using ObjectOf', ->
       expect(fnClass new MyClass1(3, 10)).toEqual([10, 10])
       expect(fnClass new MyClass1(4, 10)).toEqual("class1")
+    it 'shall destruct struct of specific type with matcher', ->
+      expect(fnClass new MyClass1(5, 15)).toEqual([5, 15])
     it 'shall destruct struct of specific type with specific properties using special constructor', ->
       expect(fnClass new MyClass2(5, 11)).toEqual([11, 11])
       expect(fnClass new MyClass2(4, 11)).toEqual("class2")

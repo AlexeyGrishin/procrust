@@ -4,10 +4,17 @@ function Placeholder(key) {
   this.__key = key;
 }
 Placeholder.prototype = {
+  length: 1,
   meet: function() {
     return new Placeholder(this.__key);
   }
 };
+
+//this is for [@head, @tail...] syntax
+Object.defineProperty(Placeholder.prototype, 0, {
+  get: function() { return pluginHeadTail.createTail(this); }
+});
+
 
 //special 'wildcard' variable which matches anything
 _ = new Placeholder("_");

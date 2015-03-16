@@ -63,6 +63,9 @@ fn = Match -> [
   #    fn(x:["start", 1, 2]) matches (so tail = [1,2])
   When x:["start", Tail(@tail)],  -> "split on primitive head and tail #{@tail}"
 
+  # Alternative is to use coffeescript native syntax
+  When x:["stop", @tail...],     -> "split on primitive head and tail #{@tail} using coffeescript syntax"
+
   # Matches object with existent field 'a'. Ignores presence of other fields. And binds field's value to variable @a
   #    fn({a: 10}) matches
   #    fn({a: 10, b: 20}) matches
@@ -82,7 +85,7 @@ fn = Match -> [
 
   # Same as before, but instead of ObjectOf we use class constructor itself. See how it is implemented to achieve
   # this syntax.
-  When Line(point1: @p1 = ObjectOf(Point, x: 0, y: 0), point2: @p2 = Point), -> "custom object with modified constructor, p1 = #{@p1}, p2 = #{@p2}"
+  When Line(point1: @p1 = Point$(x: 0, y: 0), point2: @p2 = Point), -> "custom object with modified constructor, p1 = #{@p1}, p2 = #{@p2}"
 
   # When pattern is matched the bound variables could be checked in guard function and it may reject the value
   # Following 2 patterns are equal, but first one works only for strings having exclamation mark character at beginning
@@ -107,6 +110,8 @@ fn = Match -> [
 class Point
   constructor: (@x, @y) ->
   toString: -> "(#{@x},#{@y})"
+
+Point$ = ObjectOf(Point)
 
 class Line
   constructor: (@point1, @point2) ->
