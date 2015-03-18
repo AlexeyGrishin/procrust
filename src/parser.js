@@ -1,4 +1,4 @@
-function createParser(firstArgName, plugins) {
+function createParser(firstArgBaseName, plugins) {
 
   function Done(index, refs) {
     this.command = "done";
@@ -11,7 +11,7 @@ function createParser(firstArgName, plugins) {
   };
 
   return function parse(pattern, idx, helper) {
-    var cmds = [], refs = [], vidx = 1;
+    var cmds = [], refs = [], vidx = 1, argi = 0;
 
     function addRef(varname, ref) {
       if (!ref) {
@@ -49,8 +49,8 @@ function createParser(firstArgName, plugins) {
       defn.reference = helper.getResultRef(part);
 
       parsingFlow = {
-        addCheck: function(command, value) {
-          cmds.push(new Command(command, varname, value));
+        addCheck: function(command, value, applyTo) {
+          cmds.push(new Command(command, applyTo || varname, value));
         },
         addVariable: function(command, value, applyTo) {
           var newname = "$" + vidx++;
@@ -75,7 +75,7 @@ function createParser(firstArgName, plugins) {
       addRef(refFromVariable, defn.reference);
 
     }
-    parsePart(firstArgName, pattern);
+    parsePart(firstArgBaseName, pattern);
     cmds.push(new Done(idx, refs));
     return cmds;
 

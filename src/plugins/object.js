@@ -2,6 +2,7 @@ function pluginObject() {
 
   return {
     parse_object: function(part, f) {
+      f.addCheck("any");
       var keys = Object.keys(part), i;
       keys.sort();
       for (i = 0; i < keys.length; i++) {
@@ -10,7 +11,7 @@ function pluginObject() {
     },
 
     render_prop: function(command, varname, subitemVar) {
-      return "(" + subitemVar + " = " + varname + "." + command.value + ") != null";
+      return {noIf: subitemVar + " = " + varname + "." + command.value + ";"};
     }
   };
 }

@@ -11,8 +11,9 @@ function pluginReference() {
       f.addCheck("any");
     },
 
-    render_any: function () {
-      return undefined;
+    render_any: function (command, varname) {
+      /*jslint unparam: true*/
+      return varname + " !== undefined";
     }
   };
 }

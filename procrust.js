@@ -134,11 +134,15 @@
         },
     
         //specially for arguments.
-        parse_object: function(part, f) {
+        parse_object: function(part, f, defn) {
+          var argi;
           if (!(part instanceof ArgumentsPattern)) {
             return false;
           }
-          return this._parse_arrayLike(part.args, f, "lengthEq");
+          for (argi = 0; argi < part.args.length; argi++) {
+            f.yieldNext(part.args[argi], defn.varname + argi);
+          }
+          f.addCheck("isUndefined", null, defn.varname + part.args.length);
         },
     
         parse_array: function(part, f) {
@@ -151,6 +155,7 @@
             delete part.___ignore_length;
           }
           else {
+            f.addCheck("any");
             f.addCheck(lengthCmpCommand, part.length);
           }
           for (i = 0; i < part.length; i++) {
@@ -159,16 +164,20 @@
     
         },
     
-        render_lengthEqAndType: function(command, varname) {
+        render_isUndefined: function (command, varname) {
+          return varname + " === undefined";
+        },
+    
+        render_lengthEqAndType: function (command, varname) {
           return "Array.isArray(" + varname + ") && " + varname + ".length === " + command.value;
         },
     
-        render_lengthEq: function(command, varname) {
+        render_lengthEq: function (command, varname) {
           return varname + ".length === " + command.value;
         },
     
-        render_item: function(command, varname, subitemVar) {
-          return "(" + subitemVar + " = " + varname + "[" + command.value + "]) != null";
+        render_item: function (command, varname, subitemVar) {
+          return {noIf: subitemVar + " = " + varname + "[" + command.value + "];"};
         }
       };
     }
@@ -253,59 +262,83 @@
             
             function pluginHeadTail() {
             
-                return {
-                  bitRegistry: "require",
-                  ignoreLengthFor: "require",
+              return {
+                bitRegistry: "require",
+                ignoreLengthFor: "require",
             
-                  parse_object: function(part, f) {
-                    if (!(part instanceof ArgumentsPattern)) {
-                      return false;
-                    }
-                    return this._parse_arrayLike(part.args, f, "lengthGe");
-                  },
-            
-                  parse_array: function(part, f) {
-                    return this._parse_arrayLike(part, f, "lengthGeAndType");
-                  },
-            
-                  _parse_arrayLike: function(part, f, lengthCmpCommand) {
-                    if (part.length === 0) {
-                      return false;
-                    }
-                    var last = part[part.length - 1], beforeTail, tail = null, ht;
-                    beforeTail = Array.prototype.slice.call(part, 0, part.length - 1);
-                    if (typeof last === "number") {
-                      ht = this.bitRegistry.find(last);
-                      if (ht) {
-                        beforeTail.push(ht[0]);
-                        tail = ht[1];
-                      }
-                    }
-                    else if (last instanceof Tail) {
-                      tail = last.obj;
-                    }
-                    if (tail === null) {
-                      return false;
-                    }
-            
-                    f.addCheck(lengthCmpCommand, beforeTail.length);
-                    this.ignoreLengthFor(beforeTail);
-                    f.yieldNext(beforeTail);
-                    f.yieldNext(tail, f.addVariable("tail", beforeTail.length));
-                  },
-            
-                  render_lengthGe: function(command, varname) {
-                    return varname + ".length >= " + command.value;
-                  },
-            
-                  render_lengthGeAndType: function(command, varname) {
-                    return "Array.isArray(" + varname + ") && " + varname + ".length >= " + command.value;
-                  },
-            
-                  render_tail: function(command, varname, subitemVar) {
-                    return {noIf: subitemVar + " = Array.prototype.slice.call(" + varname + ", " + command.value + ")"};
+                parse_object: function(part, f, defn) {
+                  if (!(part instanceof ArgumentsPattern)) {
+                    return false;
                   }
+                  var splitted = this._splitHeadTail(part.args), beforeTail = splitted[0], tail = splitted[1], argi;
+                  if (!tail) {
+                    return false;
+                  }
+                  for (argi = 0; argi < beforeTail.length; argi++) {
+                    f.yieldNext(beforeTail[argi], defn.varname + argi);
+                  }
+                  f.yieldNext(tail, f.addVariable("argTail", beforeTail.length, "arguments"));
+                },
             
+                parse_array: function(part, f) {
+                  return this._parse_arrayLike(part, f, "lengthGeAndType");
+                },
+            
+                _splitHeadTail: function(part) {
+                  if (part.length === 0) {
+                    return [part];
+                  }
+                  var last = part[part.length - 1], beforeTail, tail = null, ht;
+                  beforeTail = Array.prototype.slice.call(part, 0, part.length - 1);
+                  if (typeof last === "number") {
+                    ht = this.bitRegistry.find(last);
+                    if (ht) {
+                      beforeTail.push(ht[0]);
+                      tail = ht[1];
+                    }
+                  }
+                  else if (last instanceof Tail) {
+                    tail = last.obj;
+                  }
+                  if (tail === null) {
+                    return [part];
+                  }
+                  return [beforeTail, tail];
+                },
+            
+                _parse_arrayLike: function(part, f, lengthCmpCommand) {
+                  if (part.length === 0) {
+                    return false;
+                  }
+                  var splitted = this._splitHeadTail(part), beforeTail = splitted[0], tail = splitted[1];
+                  if (!tail) {
+                    return false;
+                  }
+                  f.addCheck("any");
+                  f.addCheck(lengthCmpCommand, beforeTail.length);
+                  this.ignoreLengthFor(beforeTail);
+                  f.yieldNext(beforeTail);
+                  f.yieldNext(tail, f.addVariable("tail", beforeTail.length));
+                },
+            
+                render_lengthGe: function (command, varname) {
+                  return varname + ".length >= " + command.value;
+                },
+            
+                render_lengthGeAndType: function (command, varname) {
+                  return "Array.isArray(" + varname + ") && " + varname + ".length >= " + command.value;
+                },
+            
+                render_tail: function (command, varname, subitemVar) {
+                  return {noIf: subitemVar + " = Array.prototype.slice.call(" + varname + ", " + command.value + ")"};
+                },
+            
+                render_argTail: function (command, varname, subitemVar) {
+                  return {noIf: [
+                    subitemVar + " = Array.prototype.slice.call(" + varname + ", " + (2/*guard and when args*/ + command.value) + ")",
+                    "while (" + subitemVar + ".length && " + subitemVar + "[" + subitemVar + ".length-1] === undefined) " + subitemVar + ".pop();"
+                  ]};
+                }
               };
             }
             pluginHeadTail.createTail = function createTail(o) { return new Tail(o);};
@@ -314,6 +347,7 @@
               
                 return {
                   parse_object: function(part, f) {
+                    f.addCheck("any");
                     var keys = Object.keys(part), i;
                     keys.sort();
                     for (i = 0; i < keys.length; i++) {
@@ -322,7 +356,7 @@
                   },
               
                   render_prop: function(command, varname, subitemVar) {
-                    return "(" + subitemVar + " = " + varname + "." + command.value + ") != null";
+                    return {noIf: subitemVar + " = " + varname + "." + command.value + ";"};
                   }
                 };
               }
@@ -392,15 +426,16 @@
           f.addCheck("any");
         },
     
-        render_any: function () {
-          return undefined;
+        render_any: function (command, varname) {
+          /*jslint unparam: true*/
+          return varname + " !== undefined";
         }
       };
     }
     
   compilePattern = (function() {
   
-    function createParser(firstArgName, plugins) {
+    function createParser(firstArgBaseName, plugins) {
     
       function Done(index, refs) {
         this.command = "done";
@@ -413,7 +448,7 @@
       };
     
       return function parse(pattern, idx, helper) {
-        var cmds = [], refs = [], vidx = 1;
+        var cmds = [], refs = [], vidx = 1, argi = 0;
     
         function addRef(varname, ref) {
           if (!ref) {
@@ -451,8 +486,8 @@
           defn.reference = helper.getResultRef(part);
     
           parsingFlow = {
-            addCheck: function(command, value) {
-              cmds.push(new Command(command, varname, value));
+            addCheck: function(command, value, applyTo) {
+              cmds.push(new Command(command, applyTo || varname, value));
             },
             addVariable: function(command, value, applyTo) {
               var newname = "$" + vidx++;
@@ -477,7 +512,7 @@
           addRef(refFromVariable, defn.reference);
     
         }
-        parsePart(firstArgName, pattern);
+        parsePart(firstArgBaseName, pattern);
         cmds.push(new Done(idx, refs));
         return cmds;
     
@@ -487,9 +522,9 @@
     
     
     }
-      function createRenderer(firstArgName, secondArgName, guardArgName, plugins) {
+      function createRenderer(firstArgNameBase, secondArgName, guardArgName, plugins) {
       
-        var padStep = "  ", resVarName = "res";
+        var padStep = "  ", resVarName = "res", argi = 0;
       
         /*global pluginDone*/
         plugins.addFirst(pluginDone(resVarName, secondArgName, guardArgName));
@@ -536,8 +571,8 @@
             }
       
             function addVar(name) {
-              if (name === undefined) {
-                return;
+              if (name === undefined || name.indexOf(firstArgNameBase) === 0) {
+                return name;
               }
               usedVars[name] = name;
               return name;
@@ -561,11 +596,22 @@
             return _flat(cmds.map(renderExpression.bind(null, ret, pad)).filter(_notEmpty)).map(addPad.bind(null, pad));
           }
       
+          function createFunction(code) {
+            function nextArg() {
+              return firstArgNameBase + argi++;
+            }
+            /*jslint evil: true */
+            return new Function(secondArgName, guardArgName,
+                nextArg(), nextArg(), nextArg(), nextArg(), nextArg(),
+                nextArg(), nextArg(), nextArg(), nextArg(), nextArg(),
+                code
+              );
+          }
+      
           code = renderExpressions("return false", padStep, commands);
           code.unshift(padStep + "var " + [resVarName].concat(Object.keys(usedVars)).join(", ") + ";");
           try {
-            /*jslint evil: true */
-            fn = new Function(firstArgName, secondArgName, guardArgName, code.join("\n"));
+            fn = createFunction(code.join("\n"));
             if (options.debug.functions) {
               console.log(fn.toString());
             }
@@ -795,8 +841,8 @@
     }
   
   
-    function match() {
-      var res = compiled(arguments, whenFns, guards);
+    function match(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) {
+      var res = compiled(whenFns, guards, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
       if (res) {
         return res.ok;
       }

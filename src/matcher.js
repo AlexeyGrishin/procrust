@@ -133,8 +133,8 @@ function Match(value, whensFactories) {
   }
 
 
-  function match() {
-    var res = compiled(arguments, whenFns, guards);
+  function match(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) {
+    var res = compiled(whenFns, guards, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
     if (res) {
       return res.ok;
     }

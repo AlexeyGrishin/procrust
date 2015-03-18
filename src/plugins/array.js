@@ -10,11 +10,15 @@ function pluginArray() {
     },
 
     //specially for arguments.
-    parse_object: function(part, f) {
+    parse_object: function(part, f, defn) {
+      var argi;
       if (!(part instanceof ArgumentsPattern)) {
         return false;
       }
-      return this._parse_arrayLike(part.args, f, "lengthEq");
+      for (argi = 0; argi < part.args.length; argi++) {
+        f.yieldNext(part.args[argi], defn.varname + argi);
+      }
+      f.addCheck("isUndefined", null, defn.varname + part.args.length);
     },
 
     parse_array: function(part, f) {
@@ -27,6 +31,7 @@ function pluginArray() {
         delete part.___ignore_length;
       }
       else {
+        f.addCheck("any");
         f.addCheck(lengthCmpCommand, part.length);
       }
       for (i = 0; i < part.length; i++) {
@@ -35,16 +40,20 @@ function pluginArray() {
 
     },
 
-    render_lengthEqAndType: function(command, varname) {
+    render_isUndefined: function (command, varname) {
+      return varname + " === undefined";
+    },
+
+    render_lengthEqAndType: function (command, varname) {
       return "Array.isArray(" + varname + ") && " + varname + ".length === " + command.value;
     },
 
-    render_lengthEq: function(command, varname) {
+    render_lengthEq: function (command, varname) {
       return varname + ".length === " + command.value;
     },
 
-    render_item: function(command, varname, subitemVar) {
-      return "(" + subitemVar + " = " + varname + "[" + command.value + "]) != null";
+    render_item: function (command, varname, subitemVar) {
+      return {noIf: subitemVar + " = " + varname + "[" + command.value + "];"};
     }
   };
 }

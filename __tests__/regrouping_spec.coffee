@@ -64,7 +64,6 @@ describe 'big enough matching expression', ->
   ]
 
   it "shall match all cases correctly", ->
-    #console.log(fn.matchFn.toString())
     expect(fn ['case', 1, 2]).toEqual("case1")
     expect(fn {case: 'case', x: 1, y: 10}).toEqual("case2")
     expect(fn ['case', 1, 2, 3]).toEqual("case3")

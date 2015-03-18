@@ -35,6 +35,7 @@ describe 'Match', ->
       When false, -> 'false'
       When [true, false], -> 'bool array'
     ]
+
     it 'shall match number', ->
       expect(fn 3).toEqual('is a 3')
       expect(fn 5).toEqual('is a 5')

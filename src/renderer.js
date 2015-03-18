@@ -1,6 +1,6 @@
-function createRenderer(firstArgName, secondArgName, guardArgName, plugins) {
+function createRenderer(firstArgNameBase, secondArgName, guardArgName, plugins) {
 
-  var padStep = "  ", resVarName = "res";
+  var padStep = "  ", resVarName = "res", argi = 0;
 
   /*global pluginDone*/
   plugins.addFirst(pluginDone(resVarName, secondArgName, guardArgName));
@@ -47,8 +47,8 @@ function createRenderer(firstArgName, secondArgName, guardArgName, plugins) {
       }
 
       function addVar(name) {
-        if (name === undefined) {
-          return;
+        if (name === undefined || name.indexOf(firstArgNameBase) === 0) {
+          return name;
         }
         usedVars[name] = name;
         return name;
@@ -72,11 +72,22 @@ function createRenderer(firstArgName, secondArgName, guardArgName, plugins) {
       return _flat(cmds.map(renderExpression.bind(null, ret, pad)).filter(_notEmpty)).map(addPad.bind(null, pad));
     }
 
+    function createFunction(code) {
+      function nextArg() {
+        return firstArgNameBase + argi++;
+      }
+      /*jslint evil: true */
+      return new Function(secondArgName, guardArgName,
+          nextArg(), nextArg(), nextArg(), nextArg(), nextArg(),
+          nextArg(), nextArg(), nextArg(), nextArg(), nextArg(),
+          code
+        );
+    }
+
     code = renderExpressions("return false", padStep, commands);
     code.unshift(padStep + "var " + [resVarName].concat(Object.keys(usedVars)).join(", ") + ";");
     try {
-      /*jslint evil: true */
-      fn = new Function(firstArgName, secondArgName, guardArgName, code.join("\n"));
+      fn = createFunction(code.join("\n"));
       if (options.debug.functions) {
         console.log(fn.toString());
       }
