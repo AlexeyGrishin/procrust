@@ -10,7 +10,7 @@ function pluginDone(resVarName, secondArgName, guardArgName) {
       }
       return {noIf: [
         resVarName + " = {" + result.join(', ') + "};",
-        "if (" + guardArgName + "[" + command.index + "] && " + guardArgName + "[" + command.index + "](" + resVarName + ")) return {ok: " + secondArgName + "[" + command.index + "](" + resVarName + ")};"
+        "if (" + guardArgName + "[" + command.index + "] === undefined || " + guardArgName + "[" + command.index + "](" + resVarName + ")) return {ok: " + secondArgName + "[" + command.index + "](" + resVarName + ")};"
       ]};
     },
 

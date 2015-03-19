@@ -155,13 +155,17 @@ function When(pattern, execute) {
   var args = [].slice.call(arguments), guards = [], guardSucceeded;
   execute = args.pop();
   pattern = new ArgumentsPattern(args);
-  guardSucceeded = function() { return true;};
+  guardSucceeded = undefined;
   if (Array.isArray(execute)) {
     guards = execute;
     execute = guards.pop();
-    guardSucceeded = function(ctx) {
-      return !guards.some(function(g) { return !g.call(ctx); });
-    };
+    if (guards.length > 0) {
+      guardSucceeded = function (ctx) {
+        return !guards.some(function (g) {
+          return !g.call(ctx);
+        });
+      };
+    }
   }
   return {pattern: pattern, guard: guardSucceeded, execute: function(ctx) { return execute.call(ctx); }};
 
